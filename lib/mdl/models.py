@@ -2,7 +2,7 @@
 #######################################################################################################################
 # Title: Baseline NILM Architecture
 # Topic: Non-intrusive load monitoring utilising machine learning, pattern matching and source separation
-# File: mdlTF
+# File: models
 # Date: 23.10.2021
 # Author: Dr. Pascal A. Schirmer
 # Version: V.0.0
@@ -139,6 +139,48 @@ def tfMdlDNN(X_train, outputdim):
     mdl.add(tf.keras.layers.Dense(outputdim, activation='linear'))
     mdl.compile(optimizer=tf.keras.optimizers.RMSprop(), loss='mae', metrics=[lossMetric])
     mdl.set_weights(mdl.get_weights())
+
+    return mdl
+
+
+# ------------------------------------------
+# Double CNN
+# ------------------------------------------
+def tfMdlDoubleCNN(X_train_1, Xtrain_2, outputdim):
+    inp1 = tf.keras.Input(X_train_1.shape[-3:], name="inp1")
+    inp2 = tf.keras.Input(Xtrain_2.shape[-3:], name="inp2")
+
+    c11 = tf.keras.layers.Conv2D(filters=30, kernel_size=(10, 1), activation='relu', padding="same", strides=(1, 1),
+                                 input_shape=X_train_1.shape[-3:])(inp1)
+    c12 = tf.keras.layers.Conv2D(filters=30, kernel_size=(8, 1), activation='relu', padding="same", strides=(1, 1))(c11)
+    f11 = tf.keras.layers.Flatten()(c12)
+    d11 = tf.keras.layers.Dense(512, activation='relu')(f11)
+    out1 = tf.keras.layers.Dense(outputdim, activation='sigmoid', name='out1')(d11)
+
+    c21 = tf.keras.layers.Conv2D(filters=30, kernel_size=(10, 1), activation='relu', padding="same", strides=(1, 1),
+                                 input_shape=Xtrain_2.shape[-3:])(inp2)
+    c22 = tf.keras.layers.Conv2D(filters=30, kernel_size=(8, 1), activation='relu', padding="same", strides=(1, 1))(c21)
+    f21 = tf.keras.layers.Flatten()(c22)
+    d21 = tf.keras.layers.Dense(512, activation='relu')(f21)
+    out2 = tf.keras.layers.Dense(outputdim, activation='linear', name='out2')(d21)
+
+    x = tf.keras.layers.concatenate([d11, d21])
+
+    d31 = tf.keras.layers.Dense(256, activation='relu')(x)
+    d32 = tf.keras.layers.Dense(256, activation='relu')(d31)
+    d33 = tf.keras.layers.Dense(256, activation='relu')(d32)
+    out3 = tf.keras.layers.Dense(outputdim, activation='linear', name='out3')(d33)
+
+    mdl = keras.Model(
+        inputs=[inp1, inp2],
+        outputs=[out1, out2, out3],
+    )
+
+    mdl.compile(
+        optimizer=keras.optimizers.Adam(),
+        loss=[keras.losses.BinaryCrossentropy(from_logits=True), 'mae', 'mae'],
+        loss_weights=[0.2, 0.2, 1.0],
+    )
 
     return mdl
 

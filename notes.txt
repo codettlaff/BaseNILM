@@ -1,0 +1,49 @@
+Virtual Environment: dp_smart_meter
+
+Steps:
+1. Create and clone empty repo
+2. Use conda to make new virtual environment
+3. Choose virtual environment in pycharm's project settings.
+4. In repo, add setup.py
+5. make src folder
+6. add package folder to src folder
+7. put __init__.py in package subfolder - controls what happens when you do import package
+8. in conda, activate virtual environment
+9. run pip install -e (installs from setup.py)
+
+Got data and dataset descriptions (readme.txt) from BaseNILM repo.
+
+# ===== METHODS ===== #
+
+1-Fold Validation:
+-- One training set, one validation set, one test set.
+
+K-Fold Cross Validation:
+-- Dataset split into k equal parts.
+-- Each fold is used once as a test set.
+-- Remaining k-folds are used for training.
+-- Results are averaged.
+
+Transfer Learning:
+-- Train on Dataset A, then evaluate or fine-tune on Dataset B.
+-- Model must generalize.
+
+========= PATTERN MATCHING ==========
+Paper Reference: Energy Disaggregation Using Elastic Matching Algorithms
+Uses REDD dataset - 3s sampling period, mix of One-state, multi-state, continuous appliances (Table 1)
+
+Preprocessing: Median Filter of 5 samples
+Windowing: Frames of L=25 samples with overlap equal to 15 samples.
+
+DTW Accuracy (Table 2) around 80% Estimation Accuracy E_ACC
+
+Steps:
+1. Pre-processing
+    -- Filter to remove outliers and static noise.
+2. Framing
+    -- Aggregated power frame, device power frames.
+3. Template Matching
+
+Paper forms database the same way I do - 'signatures' are just chunks of time-series data.
+
+redd1.mat is all continuous, ghost power 24%

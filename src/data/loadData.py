@@ -1,665 +1,464 @@
-#######################################################################################################################
-#######################################################################################################################
-# Title:        BaseNILM toolkit for energy disaggregation
-# Topic:        Non-intrusive load monitoring utilising machine learning, pattern matching and source separation
-# File:         loadData
-# Date:         23.05.2024
-# Author:       Dr. Pascal A. Schirmer
-# Version:      V.1.0
-# Copyright:    Pascal Schirmer
-#######################################################################################################################
-#######################################################################################################################
+# Casey Dettlaff
+# 20260217
 
-#######################################################################################################################
-# Function Description
-#######################################################################################################################
-"""
-This function loads the data from \data using different data formats. The data is processed and formatted into training
-testing and validation data.
-Inputs:     1) filename:    name of the datafile to be loaded without file extension
-            2) setupDat:    includes all simulation variables
-            3) method:      method for loading data, e.g. k-fold or transfer learning
-            4) train:       if 1 training, if 2 testing, if 0 validation
-            5) fold:        number of folds for loading data
-Outputs:    1) data:        loaded data
-            2) setup:       modified setup files
-"""
-
-#######################################################################################################################
-# Import libs
-#######################################################################################################################
-# ==============================================================================
-# Internal
-# ==============================================================================
-from src.general.helpFnc import normVal
-from src.general.featuresRoll import featuresRoll
-from src.general.helpFnc import warnMsg
-
-# ==============================================================================
-# External
-# ==============================================================================
-import pandas as pd
-import pickle
 import numpy as np
-# from nilmtk import DataSet
-from os.path import join as pjoin
-from sklearn.model_selection import train_test_split
-from sklearn.model_selection import KFold
-import copy
 import scipy.io
+import os
+import matplotlib.pyplot as plt
+
+from sklearn.model_selection import KFold
+
+import pandas as pd
+
+def load_data(filepath):
+
+    raw = scipy.io.loadmat(filepath)
+
+    if 'labelInp' not in raw or 'labelOut' not in raw:
+        raise ValueError('Missing Input or Output Labels')
+
+    in_labels = [l.strip() for l in raw['labelInp'][2:]]
+    out_labels = [l.strip() for l in raw['labelOut'][2:]]
+    in_units = [l.strip() for l in raw['unitInp'][2:]]
+    out_units = [l.strip() for l in raw['unitOut'][2:]]
+    datetimes = raw['input'][:,0]
+    sampling_period = np.mean(np.diff(datetimes))
+    inp = raw['input'][:, 2:]
+    out = raw['output'][:, 2:]
+
+    return{
+        'X': inp,
+        'Y': out,
+        'sampling_period': sampling_period,
+        'in_labels': in_labels,
+        'out_labels': out_labels,
+        'in_units': in_units,
+        'out_units': out_units,
+    }
+
+def device_type(profile, tol=1e-3, max_states=5):
+    """
+    Classify appliance profile as 'one-state', 'multi-state', or 'continuous'.
+
+    Parameters
+    ----------
+    profile : 1D numpy array
+        Power time series of the appliance.
+    tol : float
+        Tolerance for grouping similar values.
+    max_states : int
+        Maximum number of discrete levels to consider multi-state.
+
+    Returns
+    -------
+    str
+        'one-state', 'multi-state', or 'continuous'
+    """
+    profile = np.asarray(profile).flatten()
+
+    # Round values slightly to collapse small noise
+    rounded = np.round(profile / tol) * tol
+    unique_vals = np.unique(rounded)
+
+    # Check one-state (ON/OFF)
+    if np.all(np.isin(unique_vals, [0, 1])):
+        return "one-state"
+
+    # Few discrete values → multi-state
+    if len(unique_vals) <= max_states:
+        return "multi-state"
+
+    # Otherwise continuous
+    return "continuous"
+
+def ghost_data(p_agg, p_appliances):
+    """
+    p_agg: 1D numpy array (N,)
+        Aggregated power signal
+
+    p_appliances: 2D numpy array (N, M)
+        Each column corresponds to an appliance
+
+    Returns
+    -------
+    p_appliances_with_ghost : 2D numpy array (N, M+1)
+        Original appliance data with ghost power added as last column
+
+    ghost_percent : float
+        Percentage of total energy that is unaccounted for
+    """
+
+    # Sum appliance power at each timestep
+    appliance_sum = np.sum(p_appliances, axis=1)
+
+    # Ghost power = aggregated - sum of appliances
+    ghost_power = p_agg - appliance_sum
+
+    # Add ghost column to appliance matrix
+    p_appliances_with_ghost = np.column_stack((ghost_power, p_appliances))
+
+    # Total energy calculations
+    total_energy = np.sum(p_agg)
+    ghost_energy = np.sum(np.abs(ghost_power))
+
+    ghost_percent = 100 * ghost_energy / total_energy
+
+    return p_appliances_with_ghost, ghost_percent
 
 
-#######################################################################################################################
-# External Functions
-#######################################################################################################################
-# ==============================================================================
-# Excel and CSV
-# ==============================================================================
-def loadXlsx(filename, data, units):
-    try:
-        data['X'] = pd.read_excel(filename, sheet_name='input')
-        data['y'] = pd.read_excel(filename, sheet_name='output')
-        unitsRaw = pd.read_excel(filename, sheet_name='units')
-        units['Input'] = pd.DataFrame(columns=data['X'].columns)
-        units['Input'].loc[0] = unitsRaw['Input'].dropna().values
-        units['Output'] = pd.DataFrame(columns=data['y'].columns)
-        units['Output'].loc[0] = unitsRaw['Output'].dropna().values
-        print("INFO: Xlsx data file loaded")
-    except:
-        print("ERROR: Data file could not be loaded")
+def process_data(data, dataset_name):
 
-    return [data, units]
+    # For AMPDS, only want Input and Output Power
+    # Appliance Powers do not sum to the aggregate power.
+    if dataset_name == 'ampds':
+        data['X'] = data['X'][:, 0]  # keep column at index 0
+        data['in_labels'] = data['in_labels'][0]  # keep entry at index 0
+        data['in_units'] = data['in_units'][0]  # keep entry at index 0
+        data['Y'] = data['Y'][:, 0]  # keep column at index 0
 
+    if dataset_name == 'eco':
+        data['X'] = data['X'][:, 0] + data['X'][:, 5] + data['X'][:, 10] # sum P1, P2, P3
+        data['in_labels'] = 'P_agg'  # keep entry at index 0
+        data['in_units'] = 'W'  # keep entry at index 0
 
-# ==============================================================================
-# Matlab
-# ==============================================================================
-def loadMat(filename, setupDat, data, units):
-    try:
-        # ------------------------------------------
-        # Loading
-        # ------------------------------------------
-        raw = scipy.io.loadmat(filename)
+    if dataset_name == 'redd':
+        data['X'] = data['X'][:, 0]
+        data['in_labels'] = 'P_agg'
 
-        # ------------------------------------------
-        # Loading
-        # ------------------------------------------
-        if setupDat['freq'] == 'HF':
-            # Init
-            W = raw['input'].shape[1] - 2
-            F = raw['input'].shape[2]
-            temp = np.zeros((raw['input'].shape[0], W * raw['input'].shape[2] + 2))
-            temp[:, 0] = raw['output'][:, 0]
-            temp[:, 1] = raw['output'][:, 1]
+        device_types = []
+        for i in range(data['Y'].shape[1]):
+            profile = data['Y'][:, i]
+            device_types.append(device_type(profile))
+        device_types = list(set(device_types))
+        data['device_types'] = device_types
 
-            # Assign
-            for i in range(0, raw['input'].shape[2]):
-                temp[:, i * W + 2:i * W + 2 + (raw['input'].shape[1] - 2)] = raw['input'][:, 2:, i]
+        # add 'GHOST' as oth entry to data['Y']['out_labels']
+        data['out_labels'].insert(0, 'GHOST')
+        data['Y'], data['ghost_percent'] = ghost_data(data['X'], data['Y'])
 
-            # Output
-            raw['input'] = temp
-
-            # HF Information
-            setupDat['HF_W'] = W
-            setupDat['HF_F'] = F
-
-        # ------------------------------------------
-        # Output axis
-        # ------------------------------------------
-        if setupDat['dim'] == 3:
-            try:
-                raw['output'] = raw['output'][:, :, setupDat['outFeat']]
-                print("INFO: 3D datafile loaded using axis: %d" % setupDat['outFeat'])
-            except:
-                print("ERROR: 3D error data file could not be loaded")
-
-        # ------------------------------------------
-        # Processing
-        # ------------------------------------------
-        # Labels
-        for i in range(0, len(raw['labelInp'])):
-            raw['labelInp'][i] = raw['labelInp'][i].rstrip()
-        for i in range(0, len(raw['labelOut'])):
-            raw['labelOut'][i] = raw['labelOut'][i].rstrip()
-
-        # Data
-        if setupDat['freq'] == 'HF':
-            col = ['time', 'id']
-            for i in range(0, raw['input'].shape[1] - 2):
-                col.append('Inp' + str(i))
-            data['X'] = pd.DataFrame(data=raw['input'], columns=col)
-        else:
-            data['X'] = pd.DataFrame(data=raw['input'], columns=raw['labelInp'])
-        data['y'] = pd.DataFrame(data=raw['output'], columns=raw['labelOut'])
-
-        # Units
-        units['Input'] = pd.DataFrame(columns=raw['labelInp'])
-        units['Input'].loc[0] = raw['unitInp']
-        units['Output'] = pd.DataFrame(columns=raw['labelOut'])
-        units['Output'].loc[0] = raw['unitOut']
-
-        # Msg
-        print("INFO: Mat data file loaded")
-    except:
-        print("ERROR: Data file could not be loaded")
-
-    return [data, units, setupDat]
+    return data
 
 
-# ==============================================================================
-# Pickle
-# ==============================================================================
-def loadPkl(filename, data, units):
-    try:
-        data, units = pickle.load(open(filename, "rb"))
-        print("INFO: Pkl data file loaded")
-    except:
-        print("ERROR: Data file could not be loaded")
+def load_dataset_old(basePath, dataset_name):
 
-    return [data, units]
+    folderpath = os.path.join(basePath, 'data', dataset_name)
+    filepath_list = sorted([
+        os.path.join(folderpath, f)
+        for f in os.listdir(folderpath)
+        if f.endswith(".mat")
+    ])
+    valid_filepath_list = []
 
+    save_filepath = os.path.join(basePath, 'data', dataset_name+'_processed.npz')
 
-# ==============================================================================
-# H5 (configured for REDD, adapt manually)
-# ==============================================================================
-def loadH5(filename, data, units, setupDat):
-    try:
-        # ------------------------------------------
-        # Loading
-        # ------------------------------------------
-        # raw = DataSet(filename)
-        elec = []
-        # elec = raw.buildings[setupDat['house']].elec
-        app = next(elec[1].load(sample_period=int(1 / setupDat['fs'])))
+    all_input_features = set()
+    all_appliances = set()
 
-        # ------------------------------------------
-        # Init
-        # ------------------------------------------
-        # Data
-        data['X'] = pd.DataFrame(np.zeros((len(app), 5)), columns=['time', 'id', 'P-agg', 'P1-agg', 'P2-agg'])
-        data['y'] = pd.DataFrame(np.zeros((len(app), len(setupDat['out']) + 2)),
-                                 columns=pd.concat(['time', 'id', setupDat['out']]))
+    for filepath in filepath_list:
+        raw = scipy.io.loadmat(filepath)
 
-        # Units
-        units['Input'] = pd.DataFrame(columns=data['X'].columns)
-        units['Input'].loc[0] = ['sec', '-', 'W', 'W', 'W']
-        units['Output'] = pd.DataFrame(columns=data['y'].columns)
-        strs = ['W' for x in range(len(setupDat['out']))]
-        units['Output'].loc[0] = np.concatenate((['sec', '-', strs]))
+        # Skip REDD HF files
+        if dataset_name == 'redd' and raw['input'].ndim == 3:
+            continue
 
-        # ------------------------------------------
-        # Input data
-        # ------------------------------------------
-        data['X']['time'] = np.linspace(0, len(app) * int(1 / setupDat['fs']) - int(1 / setupDat['fs']), len(app))
-        data['X']['id'] = 1
-        data['X']['P1-agg'] = next(elec[1].load(sample_period=int(1 / setupDat['fs'])))
-        data['X']['P2-agg'] = next(elec[2].load(sample_period=int(1 / setupDat['fs'])))
-        data['X']['P-agg'] = data['X']['P1-agg'] + data['X']['P2-agg']
+        # Skip files without input labels
+        if 'labelInp' not in raw or 'labelOut' not in raw:
+            continue
 
-        # ------------------------------------------
-        # Output data
-        # ------------------------------------------
-        data['y'][setupDat['out'][0]] = next(elec[setupDat['out'][0]].load(sample_period=int(1 / setupDat['fs'])))
-        for i in range(1, len(setupDat['out'])):
-            data['y'][setupDat['out'][i]] = next(elec[setupDat['out'][i]].load(sample_period=int(1 / setupDat['fs'])))
+        valid_filepath_list.append(filepath)
 
-        # ------------------------------------------
-        # Msg
-        # ------------------------------------------
-        print("INFO: H5 data file loaded")
-    except:
-        print("ERROR: Data file could not be loaded")
+        in_labels = [l.strip() for l in raw['labelInp'][2:]]
+        out_labels = [l.strip() for l in raw['labelOut'][2:]]
 
-    return [data, units]
+        all_input_features.update(in_labels)
+        all_appliances.update(out_labels)
 
+    all_input_features = sorted(list(all_input_features))
+    all_appliances = sorted(list(all_appliances))
 
-#######################################################################################################################
-# Function
-#######################################################################################################################
-def loadData(setupExp, setupDat, setupPar, setupMdl, setupPath, name, method, train, fold):
-    ###################################################################################################################
-    # MSG IN
-    ###################################################################################################################
-    print("INFO: Loading Dataset")
+    input_index = {feat: idx for idx, feat in enumerate(all_input_features)}
+    appliance_index = {app: idx for idx, app in enumerate(all_appliances)}
 
-    ###################################################################################################################
-    # Initialisation
-    ###################################################################################################################
-    # ==============================================================================
-    # Parameters
-    # ==============================================================================
-    shu = setupDat['Shuffle']
+    X_list = []
+    Y_list = []
 
-    # ==============================================================================
-    # Variables
-    # ==============================================================================
-    data = {}
-    units = {}
+    for filepath in valid_filepath_list:
 
-    # ==============================================================================
-    # Path
-    # ==============================================================================
-    # ------------------------------------------
-    # File Extension
-    # ------------------------------------------
-    name = name + '.' + setupDat['type']
-    path = setupPath['datPath']
+        raw = scipy.io.loadmat(filepath)
+        inp = raw['input']
+        out = raw['output']
 
-    # ------------------------------------------
-    # Path
-    # ------------------------------------------
-    if setupDat['folder'] == "":
-        filename = pjoin(path, name)
-        print("INFO: Loading dataset from head-folder: \data")
+        # Build X - Always 1D
+        if inp.ndim == 3: X_raw = inp[:, :, 2]  # (N, T) → active power only
+        else: X_raw = inp[:, 2]  # (N,) or (N, features)
+        X_i = X_raw.astype(np.float32)
+        N = len(X_raw)
+        X_list.append(X_i)
+
+        # Build padded Y - Always 2D. Dimensions depend on # Appliances
+        Y_raw = out[:, 2:]
+        if Y_raw.ndim == 3: Y_raw = Y_raw[:, :, 2] # Keep active power only.
+        Y_raw = Y_raw.astype(np.float32)
+        current_output_labels = [l.strip() for l in raw['labelOut'][2:]]
+
+        Y_i = np.zeros((N, len(all_appliances)), dtype=np.float32)
+        for j, label in enumerate(current_output_labels):
+            col_idx = appliance_index[label]
+            Y_i[:, col_idx] = Y_raw[:, j]
+
+        Y_list.append(Y_i)
+
+    # Normalize
+    '''
+    for i in range(len(X_list)):
+        data = X_list[i]
+        peak = np.max(np.abs(data))
+        X_list[i] = data / peak
+
+    for i in range(len(Y_list)):
+        data = Y_list[i]
+        Y_list[i] = data / peak
+    '''
+
+    X = np.concatenate(X_list)
+    Y = np.concatenate(Y_list, axis=0)
+
+    np.savez_compressed(save_filepath, X=X, Y=Y, output_labels=all_appliances)
+
+    return {
+        'X': X,
+        'Y': Y,
+        'output_labels': all_appliances
+    }
+
+# Post-Load Processing
+# Compute total energy per appliance, keep only top contributers.
+# Limit samples
+# Remove constant columns
+# split training / testing (1-fold split, k-fold split, transfer learning)
+# rolling feature engineering
+# normalization / statistics
+# sampling time computation
+
+def plot_data(data):
+
+    X = data['X']
+    Y = data['Y']
+    labels = data['output_labels']
+    N = len(X)
+    t = np.arange(N)
+
+    plt.figure(figsize=(14, 6))
+
+    plt.plot(t, X, linewidth=2.5, label="Aggregate (X)") # Plot aggregate
+
+    # Plot appliances (thin + transparent)
+    for i in range(Y.shape[1]):
+        plt.plot(
+            t,
+            Y[:, i],
+            linewidth=1,
+            alpha=0.7,
+            label=labels[i]
+        )
+
+    plt.title("Aggregate and Appliance Power")
+    plt.ylabel("Normalized Power")
+    plt.legend(fontsize=8, loc='upper right')
+    plt.tight_layout()
+    plt.show()
+
+def data_table(X_true, Y_true, output_labels, csv_filepath, Y_pred=None):
+
+    # ---------------------------
+    # Determine number of appliances
+    # ---------------------------
+    if Y_true.ndim == 2:              # (T, num_apps)
+        T, num_apps = Y_true.shape
+    elif Y_true.ndim == 3:            # (N, T, num_apps)
+        _, _, num_apps = Y_true.shape
     else:
-        try:
-            filename = pjoin(path, setupDat['folder'], name)
-            print("INFO: Loading dataset from sub-folder: \data\ " + str(setupDat['folder']))
-        except:
-            filename = pjoin(path, name)
-            msg = "WARN: Sub-folder not found trying head-folder: \data"
-            setupExp = warnMsg(msg, 1, 1, setupExp)
+        raise ValueError("Y_true must be 2D or 3D.")
 
-    ###################################################################################################################
-    # Loading
-    ###################################################################################################################
-    # ==============================================================================
-    # Excel
-    # ==============================================================================
-    if setupDat['type'] == 'xlsx' or setupDat['type'] == 'csv':
-        [data, units] = loadXlsx(filename, data, units)
+    if len(output_labels) != num_apps:
+        raise ValueError("Length of output_labels must match number of appliances.")
 
-    # ==============================================================================
-    # Mat-file
-    # ==============================================================================
-    elif setupDat['type'] == 'mat':
-        [data, units, setupDat] = loadMat(filename, setupDat, data, units)
+    # ---------------------------
+    # Flatten (undo windowing if present)
+    # ---------------------------
+    X_flat = X_true.reshape(-1)
+    Y_true_flat = Y_true.reshape(-1, num_apps)
 
-    # ==============================================================================
-    # Pkl-file
-    # ==============================================================================
-    elif setupDat['type'] == 'pkl':
-        [data, units] = loadPkl(filename, data, units)
+    if Y_pred is not None:
+        if Y_pred.shape[-1] != num_apps:
+            raise ValueError("Y_pred appliance dimension mismatch.")
+        Y_pred_flat = Y_pred.reshape(-1, num_apps)
 
-    # ==============================================================================
-    # h5-file (tbi)
-    # ==============================================================================
-    elif setupDat['type'] == 'h5':
-        [data, units] = loadH5(filename, data, units, setupDat)
+    # ---------------------------
+    # Build dataframe
+    # ---------------------------
+    data = {"aggregate_power": X_flat}
 
-    # ==============================================================================
-    # Default
-    # ==============================================================================
+    # True appliance columns
+    for i, label in enumerate(output_labels):
+        data[f"true_{label}"] = Y_true_flat[:, i]
+
+    # Predicted appliance columns (optional)
+    if Y_pred is not None:
+        for i, label in enumerate(output_labels):
+            data[f"pred_{label}"] = Y_pred_flat[:, i]
+
+    df = pd.DataFrame(data)
+
+    # ---------------------------
+    # Write to CSV
+    # ---------------------------
+    df.to_csv(csv_filepath, index=False)
+
+    return df
+
+def trim_data(data, n_samples):
+
+    X = data['X']
+    Y = data['Y']
+
+    if n_samples > X.shape[0]: return data
+
+    trimmed_data = {}
+    trimmed_data['X'] = X[:n_samples]
+    trimmed_data['Y'] = Y[:n_samples]
+    trimmed_data['output_labels'] = data['output_labels']
+
+    return trimmed_data
+
+def split_data(data, method='1-fold', rT=0.7, rV=0.15, kfold=5, fold=1, shuffle=False, random_state=42):
+    """
+    :param data: Dict, output of load_dataset()
+    :param method: '1-fold' or 'k-fold'
+    :param rT: Train ratio
+    :param rV: Validation ratio
+    :param kfold: Number of folds
+    :param fold: Which fold to use
+    :param shuffle: Whether to shuffle
+    :return: data_split
+    """
+
+    X = data['X']
+    Y = data['Y']
+    N = X.shape[0]
+
+    data_split = {}
+
+    # 1-Fold Split
+    if method == '1-fold':
+
+        if shuffle:
+            idx = np.random.permutation(N)
+            X = X[idx]
+            Y = Y[idx]
+
+        n_train = int(rT * N)
+        n_val = int(rV * N)
+
+        X_train = X[:n_train]
+        Y_train = Y[:n_train]
+
+        X_val = X[n_train:n_train+n_val]
+        Y_val = Y[n_train:n_train+n_val]
+
+        X_test = X[n_train+n_val:]
+        Y_test = Y[n_train+n_val:]
+
+    elif method == 'k-fold':
+
+        if shuffle: kf = KFold(n_splits=kfold, shuffle=shuffle, random_state=random_state)
+        else: kf = KFold(n_splits=kfold, shuffle=shuffle)
+
+        fold_idx = 1
+        for train_idx, test_idx in kf.split(X):
+
+            if fold_idx == fold:
+                X_train_full = X[train_idx]
+                Y_train_full = Y[train_idx]
+                X_test = X[test_idx]
+                Y_test = Y[test_idx]
+                break
+
+            fold_idx += 1
+
+        n_train_full = X_train_full.shape[0]
+        n_val = int(rV * n_train_full)
+
+        X_val = X_train_full[:n_val]
+        Y_val = Y_train_full[:n_val]
+
+        X_train = X_train_full[n_val:]
+        Y_train = Y_train_full[n_val:]
+
     else:
-        print("ERROR: Data format not available")
+        raise ValueError('Invalid method')
 
-    ###################################################################################################################
-    # Pre-Processing
-    ###################################################################################################################
-    # ==============================================================================
-    # Selecting Input and Output
-    # ==============================================================================
-    # ------------------------------------------
-    # Input
-    # ------------------------------------------
-    if len(setupDat['inp']) != 0:
-        try:
-            inp = copy.deepcopy(setupDat['inp'])
-            inp.append('time')
-            inp.append('id')
-            data['X'] = data['X'][inp]
-            units['Input'] = units['Input'][inp]
-            print("INFO: Input features selected")
-        except:
-            print("INFO: Selecting input features failed")
+    data_split['Train'] = {'X': X_train, 'Y': Y_train}
+    data_split['Val'] = {'X': X_val, 'Y': Y_val}
+    data_split['Test'] = {'X': X_test, 'Y': Y_test}
+    data_split['sampling_period'] = 'sampling_period'
+    data_split['in_labels'] = data['in_labels']
+    data_split['out_labels'] = data['out_labels']
+    data_split['in_units'] = data['in_units']
+    data_split['out_units'] = data['out_units']
 
-    # ------------------------------------------
-    # Output List based
-    # ------------------------------------------
-    # Input List
-    if len(setupDat['out']) != 0 and setupDat['outEnergy'] == 0:
-        try:
-            out = copy.deepcopy(setupDat['out'])
-            setupDat['numOut'] = len(out)
-            out.append('time')
-            out.append('id')
-            data['y'] = data['y'][out]
-            units['Output'] = units['Output'][out]
-            print("INFO: Output features selected")
-        except:
-            print("INFO: Selecting output features failed")
+    return data_split
 
-    # All Inputs
-    elif len(setupDat['out']) == 0 and setupDat['outEnergy'] == 0:
-        setupDat['numOut'] = data['y'].shape[1] - 2
+def window_data(X, Y, window_length, stride=1):
 
-    # Energy based
-    else:
-        # Energy
-        energySel = 0
-        energy = data['y'].drop(['time', 'id'], axis=1)
-        energy = energy.sum(axis=0)
-        energy = energy.sort_values(ascending=False)
-        energyTotal = energy.sum()
+    # N = number of windows
+    # Before windowing, X shape = (T,).
+    # Before windowing, Y shape = (T, numApp).
+    # After windowing, X shape = (N, window_length).
+    # After windowing, Y shape = (N, window_length, numApp).
 
-        # Select
-        for i in range(0, len(energy)):
-            energySel = energySel + energy[i]
-            if energySel/energyTotal > setupDat['outEnergy']:
-                try:
-                    data['y'] = data['y'].drop(energy.index[i], axis=1)
-                except:
-                    print("INFO: Selecting output features failed")
-        setupDat['numOut'] = data['y'].shape[1] - 2
+    T = X.shape[0]
+    numApp = Y.shape[1] # Number of Appliances
 
-        # Msg
-        print("INFO: Selected appliance with a total energy amount of ", str(int(setupDat['outEnergy']*100)), "%")
+    N = (T - window_length) // stride + 1 # Number of Windows
 
-    # ==============================================================================
-    # Limiting
-    # ==============================================================================
-    if setupDat['lim'] != 0:
-        data['X'] = data['X'].head(setupDat['lim'])
-        data['y'] = data['y'].head(setupDat['lim'])
-        print("INFO: Data limited to ", setupDat['lim'], " samples")
-    else:
-        print("INFO: Data samples not limited")
+    X_win = np.zeros((N, window_length), dtype=np.float32)
+    Y_win = np.zeros((N, window_length, numApp), dtype=np.float32)
 
-    # ==============================================================================
-    # Removing Constant Features
-    # ==============================================================================
-    # ------------------------------------------
-    # Input
-    # ------------------------------------------
-    for col in data['X'].columns:
-        if np.sum(abs(np.diff(data['X'][col]))) == 0 and col != 'time' and col != 'id' and setupDat['freq'] != 'HF':
-            # Calc
-            data['X'] = data['X'].drop([col], axis=1)
+    idx = 0
+    for start in range(0, T - window_length + 1, stride):
+        end = start + window_length
+        X_win[idx] = X[start:end]
+        Y_win[idx] = Y[start:end]
+        idx += 1
 
-            # Unit
-            units['Input'] = units['Input'].drop([col], axis=1)
+    return X_win, Y_win
 
-            # Warn
-            msg = "WARN: Constant column in X data " + str(col) + " will be removed"
-            setupExp = warnMsg(msg, 1, 1, setupExp)
+def unwindow_data(X_win, window_length, stride):
+    """
+    Inverse of window_data for Y-type input
+    (N, window_length, numApp) → (T_original, numApp)
+    """
 
-    # ------------------------------------------
-    # Output
-    # ------------------------------------------
-    for col in data['y'].columns:
-        if np.sum(abs(np.diff(data['y'][col]))) == 0 and col != 'time' and col != 'id':
-            # Calc
-            data['y'] = data['y'].drop([col], axis=1)
+    N, T, numApp = X_win.shape
 
-            # Unit
-            units['Output'] = units['Output'].drop([col], axis=1)
-            setupDat['numOut'] = setupDat['numOut'] - 1
+    if T != window_length:
+        raise ValueError("window_length mismatch.")
 
-            # Warn
-            msg = "WARN: Constant column in X data " + str(col) + " will be removed"
-            setupExp = warnMsg(msg, 1, 1, setupExp)
+    # Recover original length T
+    T_original = (N - 1) * stride + window_length
 
-    ###################################################################################################################
-    # Calculating
-    ###################################################################################################################
-    # ==============================================================================
-    # 1-Fold
-    # ==============================================================================
-    if method == 0:
-        # ------------------------------------------
-        # Training
-        # ------------------------------------------
-        if train == 1:
-            data['X'], _ = train_test_split(data['X'], test_size=(1 - setupDat['rT']), random_state=None, shuffle=shu)
-            data['y'], _ = train_test_split(data['y'], test_size=(1 - setupDat['rT']), random_state=None, shuffle=shu)
+    X_recon = np.zeros((T_original, numApp))
+    counts = np.zeros(T_original)
 
-        # ------------------------------------------
-        # Testing
-        # ------------------------------------------
-        elif train == 2:
-            _, data['X'] = train_test_split(data['X'], test_size=(1 - setupDat['rT']), random_state=None, shuffle=shu)
-            _, data['y'] = train_test_split(data['y'], test_size=(1 - setupDat['rT']), random_state=None, shuffle=shu)
+    for i in range(N):
+        start = i * stride
+        end = start + window_length
 
-        # ------------------------------------------
-        # Validation
-        # ------------------------------------------
-        else:
-            # Split
-            X, _ = train_test_split(data['X'], test_size=(1 - setupDat['rT']), random_state=None, shuffle=False)
-            y, _ = train_test_split(data['y'], test_size=(1 - setupDat['rT']), random_state=None, shuffle=False)
+        X_recon[start:end] += X_win[i]
+        counts[start:end] += 1
 
-            # Extract
-            data['X'], _ = train_test_split(X, test_size=(1 - setupDat['rV']), random_state=None, shuffle=shu)
-            data['y'], _ = train_test_split(y, test_size=(1 - setupDat['rV']), random_state=None, shuffle=shu)
+    counts[counts == 0] = 1
+    X_recon /= counts[:, None]
 
-    # ==============================================================================
-    # k-Fold
-    # ==============================================================================
-    elif method == 1:
-        # ------------------------------------------
-        # Init
-        # ------------------------------------------
-        kfX = KFold(n_splits=setupExp['kfold'])
-        kfX.get_n_splits(data['X'])
-        kfy = KFold(n_splits=setupExp['kfold'])
-        kfy.get_n_splits(data['y'])
-
-        # ------------------------------------------
-        # Training
-        # ------------------------------------------
-        if train == 1:
-            # X
-            iter = 0
-            for idx, _ in kfX.split(data['X']):
-                iter = iter + 1
-                if iter == fold:
-                    data['X'] = data['X'].iloc[idx, :]
-                    break
-
-            # y
-            iter = 0
-            for idx, _ in kfy.split(data['y']):
-                iter = iter + 1
-                if iter == fold:
-                    data['y'] = data['y'].iloc[idx, :]
-                    break
-
-        # ------------------------------------------
-        # Testing
-        # ------------------------------------------
-        elif train == 2:
-            # X
-            iter = 0
-            for idx1, idx2 in kfX.split(data['X']):
-                iter = iter + 1
-                if iter == fold:
-                    data['X'] = data['X'].iloc[idx2, :]
-                    break
-
-            # y
-            iter = 0
-            for idx1, idx2 in kfy.split(data['y']):
-                iter = iter + 1
-                if iter == fold:
-                    data['y'] = data['y'].iloc[idx2, :]
-                    break
-
-        # ------------------------------------------
-        # Validation
-        # ------------------------------------------
-        else:
-            # X
-            iter = 0
-            for idx, _ in kfX.split(data['X']):
-                iter = iter + 1
-                if iter == fold:
-                    data['X'] = data['X'].iloc[idx, :]
-                    break
-
-            # y
-            iter = 0
-            for idx, _ in kfy.split(data['y']):
-                iter = iter + 1
-                if iter == fold:
-                    data['y'] = data['y'].iloc[idx, :]
-                    break
-
-            # Extract
-            data['X'], _ = train_test_split(data['X'], test_size=(1 - setupDat['rV']), random_state=None, shuffle=shu)
-            data['y'], _ = train_test_split(data['y'], test_size=(1 - setupDat['rV']), random_state=None, shuffle=shu)
-
-    # ==============================================================================
-    # Transfer
-    # ==============================================================================
-    elif method == 2:
-        data['X'] = data['X']
-        data['y'] = data['y']
-
-    # ==============================================================================
-    # IDs
-    # ==============================================================================
-    else:
-        # ------------------------------------------
-        # Init
-        # ------------------------------------------
-        idTest = setupDat['idT']
-        idVal = setupDat['idV']
-
-        # ------------------------------------------
-        # Training
-        # ------------------------------------------
-        if train == 1:
-            # Split
-            for sel in idTest:
-                data['X'].drop(data['X'][data['X']['id'] == sel].index, inplace=True)
-                data['y'].drop(data['y'][data['y']['id'] == sel].index, inplace=True)
-
-        # ------------------------------------------
-        # Testing
-        # ------------------------------------------
-        elif train == 2:
-            # Init
-            idTrain = [sel for sel in data['X']['id'].unique() if sel not in idTest]
-
-            # Split
-            for sel in idTrain:
-                data['X'].drop(data['X'][data['X']['id'] == sel].index, inplace=True)
-                data['y'].drop(data['y'][data['y']['id'] == sel].index, inplace=True)
-
-        # ------------------------------------------
-        # Validation
-        # ------------------------------------------
-        else:
-            # Init
-            idTrain = [sel for sel in data['X']['id'].unique() if sel not in idVal]
-
-            # Split
-            for sel in idTrain:
-                data['X'].drop(data['X'][data['X']['id'] == sel].index, inplace=True)
-                data['y'].drop(data['y'][data['y']['id'] == sel].index, inplace=True)
-
-    ###################################################################################################################
-    # Post-Processing
-    ###################################################################################################################
-    # ==============================================================================
-    # Rolling input features
-    # ==============================================================================
-    if setupPar['feat'] == 2 or setupPar['feat'] == 3:
-        tempTime = copy.deepcopy(data['X']['time'])
-        tempID = copy.deepcopy(data['X']['id'])
-        data['X'] = featuresRoll(data['X'].drop(['time', 'id'], axis=1), setupMdl)
-        data['X']['time'] = tempTime
-        data['X']['id'] = tempID
-
-    # ==============================================================================
-    # Norm
-    # ==============================================================================
-    [maxX, maxY, minX, minY, uX, uY, sX, sY, qX, qY, q1X, q1Y, q3X, q3Y] = normVal(data['X'].drop(['time', 'id'], axis=1),
-                                                                           data['y'].drop(['time', 'id'], axis=1))
-
-    # ==============================================================================
-    # Labels
-    # ==============================================================================
-    setupDat['inpLabel'] = data['X'].columns
-    setupDat['inpLabel'] = setupDat['inpLabel'].drop(['time', 'id'])
-    setupDat['outLabel'] = data['y'].columns
-    setupDat['outLabel'] = setupDat['outLabel'].drop(['time', 'id'])
-    setupDat['inpUnits'] = units['Input'].drop(['time', 'id'], axis=1)
-    setupDat['outUnits'] = units['Output'].drop(['time', 'id'], axis=1)
-
-    # ==============================================================================
-    # Sampling Time
-    # ==============================================================================
-    setupDat['Ts_raw_X'] = data['X']['time'].iloc[1] - data['X']['time'].iloc[0]
-    setupDat['fs_raw_X'] = 1 / setupDat['Ts_raw_X']
-    setupDat['Ts_raw_y'] = data['y']['time'].iloc[1] - data['y']['time'].iloc[0]
-    setupDat['fs_raw_y'] = 1 / setupDat['Ts_raw_y']
-
-    # ==============================================================================
-    # Interpolation
-    # ==============================================================================
-    # ------------------------------------------
-    # Input
-    # ------------------------------------------
-    for names in data['X']:
-        if pd.isna(data['X'][names]).any():
-            # Calc
-            data['X'][names] = data['X'][names].interpolate(limit_direction='both')
-
-            # Msg
-            msg = "WARN: NaN in X data column " + str(names) + " detected using interpolation"
-            setupExp = warnMsg(msg, 1, 0, setupExp)
-            print("WARN: NaN in X data column %s detected using interpolation", names)
-
-    # ------------------------------------------
-    # Output
-    # ------------------------------------------
-    for names in data['y']:
-        if pd.isna(data['y'][names]).any():
-            # Calc
-            data['y'][names] = data['y'][names].interpolate(limit_direction='both')
-
-            # Msg
-            msg = "WARN: NaN in X data column " + str(names) + " detected using interpolation"
-            setupExp = warnMsg(msg, 1, 0, setupExp)
-            print("WARN: NaN in y data column %s detected using interpolation", names)
-
-    # ==============================================================================
-    # Removing NaN/Inf
-    # ==============================================================================
-    # ------------------------------------------
-    # Input
-    # ------------------------------------------
-    for names in data['X']:
-        data['X'][names] = data['X'][names].fillna(0)
-        data['X'][names].replace([np.inf, -np.inf], 0, inplace=True)
-
-    # ------------------------------------------
-    # Output
-    # ------------------------------------------
-    for names in data['y']:
-        data['y'][names] = data['y'][names].fillna(0)
-        data['y'][names].replace([np.inf, -np.inf], 0, inplace=True)
-
-    # ==============================================================================
-    # Normalisation Values
-    # ==============================================================================
-    setupDat['normMaxX'] = maxX
-    setupDat['normMaxY'] = maxY
-    setupDat['normMinX'] = minX
-    setupDat['normMinY'] = minY
-    setupDat['normAvgX'] = uX
-    setupDat['normAvgY'] = uY
-    setupDat['normVarX'] = sX
-    setupDat['normVarY'] = sY
-    setupDat['normQ1X'] = q1X
-    setupDat['normQ1Y'] = q1Y
-    setupDat['normQ3X'] = q3X
-    setupDat['normQ3Y'] = q3Y
-    setupDat['normQX'] = qX
-    setupDat['normQY'] = qY
-
-    ###################################################################################################################
-    # Return
-    ###################################################################################################################
-    return [data, setupDat, setupExp]
+    return X_recon

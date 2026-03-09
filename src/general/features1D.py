@@ -38,188 +38,71 @@ from scipy import stats
 #######################################################################################################################
 # Function
 #######################################################################################################################
-def features1D(data, feat):
-    ###################################################################################################################
-    # MSG IN
-    ###################################################################################################################
-    print("INFO: Calculating 1D Features")
 
-    ###################################################################################################################
-    # Initialisation
-    ###################################################################################################################
-    # ==============================================================================
-    # Parameters
-    # ==============================================================================
-    F = sum(feat.values())
-    dim = data.ndim
+# Computes statistical features along the time axis and returns them as a feature matrix.
+# Input Data Formatting
+# Case 1 2D Input: Shape (N, T)
+# Case 2 3D Input: Shape (N, T, F_in)
+# Feature Selection: List of Features
+# --- keys: Mean, Std, RMS, Peak2Rms, Median, Min, Max, Per25, Per75, Energy, Var, Range, 3rdMoment, 4thMoment
+# Case 1: Output Shape (N, F)
+# Case 2: Output Shape (N, F_in, F)
+
+def features2D(data, feature_selection):
+
+    if 'all' in feature_selection: F = 14
+    else: F = len(feature_selection)
+    N,T = data.shape
+    out = np.zeros((N, F))
     idx = 0
 
-    # ==============================================================================
-    # Variables
-    # ==============================================================================
-    if dim == 2:
-        out = np.zeros((len(data), F))
-    elif dim == 3:
-        out = np.zeros((len(data), data.shape[2], F))
-    else:
-        out = np.zeros((len(data), F))
-
-    ###################################################################################################################
-    # Calculation
-    ###################################################################################################################
-    # ==============================================================================
-    # Mean
-    # ==============================================================================
-    if feat['Mean'] == 1:
-        if dim == 2:
-            out[:, idx] = np.mean(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.mean(data, axis=1)
+    if 'Mean' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.mean(data, axis=1)
+        idx = idx + 1
+    if 'Std' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.std(data, axis=1)
+        idx = idx + 1
+    if 'RMS' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.sqrt(np.mean(data ** 2, axis=1))
+        idx = idx + 1
+    if 'Peak2Rms' in feature_selection or 'all' in feature_selection:
+        temp = np.max(data, axis=1)
+        temp2 = np.sqrt(np.mean(data ** 2, axis=1))
+        out[:, idx] = np.divide(temp, temp2)
+        idx = idx + 1
+    if 'Median' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.median(data, axis=1)
+        idx = idx + 1
+    if 'Min' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.min(data, axis=1)
+        idx = idx + 1
+    if 'Max' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.max(data, axis=1)
+        idx = idx + 1
+    if 'Per25' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.percentile(data, 25, axis=1)
+        idx = idx + 1
+    if 'Per75' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.percentile(data, 75, axis=1)
+        idx = idx + 1
+    if 'Energy' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.mean(data, axis=1)
+        idx = idx + 1
+    if 'Var' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.var(data, axis=1)
+        idx = idx + 1
+    if 'Range' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = np.ptp(data, axis=1)
+        idx = idx + 1
+    if '3rdMoment' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = stats.skew(data, axis=1)
+        idx = idx + 1
+    if '4thMoment' in feature_selection or 'all' in feature_selection:
+        out[:, idx] = stats.kurtosis(data, axis=1)
         idx = idx + 1
 
-    # ==============================================================================
-    # Std
-    # ==============================================================================
-    if feat['Std'] == 1:
-        if dim == 2:
-            out[:, idx] = np.std(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.std(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # RMS
-    # ==============================================================================
-    if feat['RMS'] == 1:
-        if dim == 2:
-            out[:, idx] = np.sqrt(np.mean(data ** 2, axis=1))
-        elif dim == 3:
-            out[:, :, idx] = np.sqrt(np.mean(data ** 2, axis=1))
-        idx = idx + 1
-
-    # ==============================================================================
-    # Peak2Rms
-    # ==============================================================================
-    if feat['Peak2Rms'] == 1:
-        if dim == 2:
-            temp = np.max(data, axis=1)
-            temp2 = np.sqrt(np.mean(data ** 2, axis=1))
-            out[:, idx] = np.divide(temp, temp2)
-        elif dim == 3:
-            temp = np.max(data, axis=1)
-            temp2 = np.sqrt(np.mean(data ** 2, axis=1))
-            out[:, :, idx] = np.divide(temp, temp2)
-        idx = idx + 1
-
-    # ==============================================================================
-    # Median
-    # ==============================================================================
-    if feat['Median'] == 1:
-        if dim == 2:
-            out[:, idx] = np.median(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.median(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # MIN
-    # ==============================================================================
-    if feat['Min'] == 1:
-        if dim == 2:
-            out[:, idx] = np.min(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.min(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # MAX
-    # ==============================================================================
-    if feat['Max'] == 1:
-        if dim == 2:
-            out[:, idx] = np.max(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.max(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # Per25
-    # ==============================================================================
-    if feat['Per25'] == 1:
-        if dim == 2:
-            out[:, idx] = np.percentile(data, 25, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.percentile(data, 25, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # Per75
-    # ==============================================================================
-    if feat['Per75'] == 1:
-        if dim == 2:
-            out[:, idx] = np.percentile(data, 75, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.percentile(data, 75, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # Energy
-    # ==============================================================================
-    if feat['Energy'] == 1:
-        if dim == 2:
-            out[:, idx] = np.sum(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.sum(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # Var
-    # ==============================================================================
-    if feat['Var'] == 1:
-        if dim == 2:
-            out[:, idx] = np.var(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.var(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # Range
-    # ==============================================================================
-    if feat['Range'] == 1:
-        if dim == 2:
-            out[:, idx] = np.ptp(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = np.ptp(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # 3rdMoment
-    # ==============================================================================
-    if feat['3rdMoment'] == 1:
-        if dim == 2:
-            out[:, idx] = stats.skew(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = stats.skew(data, axis=1)
-        idx = idx + 1
-
-    # ==============================================================================
-    # 4th Moment
-    # ==============================================================================
-    if feat['4thMoment'] == 1:
-        if dim == 2:
-            out[:, idx] = stats.kurtosis(data, axis=1)
-        elif dim == 3:
-            out[:, :, idx] = stats.kurtosis(data, axis=1)
-
-    ###################################################################################################################
-    # Post-Processing
-    ###################################################################################################################
-    # ==============================================================================
-    # Replacing NaNs and Inf
-    # ==============================================================================
+    # Post-processing
     out = np.nan_to_num(out)
     out[out == np.inf] = 0
 
-    ###################################################################################################################
-    # Return
-    ###################################################################################################################
     return out

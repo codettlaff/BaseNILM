@@ -1,13 +1,10 @@
 # Casey Dettlaff
-# 20260217
 
 import numpy as np
 import scipy.io
 import os
 import matplotlib.pyplot as plt
-
 from sklearn.model_selection import KFold
-
 import pandas as pd
 
 def load_data(filepath):
@@ -37,23 +34,7 @@ def load_data(filepath):
     }
 
 def device_type(profile, tol=1e-3, max_states=5):
-    """
-    Classify appliance profile as 'one-state', 'multi-state', or 'continuous'.
 
-    Parameters
-    ----------
-    profile : 1D numpy array
-        Power time series of the appliance.
-    tol : float
-        Tolerance for grouping similar values.
-    max_states : int
-        Maximum number of discrete levels to consider multi-state.
-
-    Returns
-    -------
-    str
-        'one-state', 'multi-state', or 'continuous'
-    """
     profile = np.asarray(profile).flatten()
 
     # Round values slightly to collapse small noise
@@ -72,21 +53,6 @@ def device_type(profile, tol=1e-3, max_states=5):
     return "continuous"
 
 def ghost_data(p_agg, p_appliances):
-    """
-    p_agg: 1D numpy array (N,)
-        Aggregated power signal
-
-    p_appliances: 2D numpy array (N, M)
-        Each column corresponds to an appliance
-
-    Returns
-    -------
-    p_appliances_with_ghost : 2D numpy array (N, M+1)
-        Original appliance data with ghost power added as last column
-
-    ghost_percent : float
-        Percentage of total energy that is unaccounted for
-    """
 
     # Sum appliance power at each timestep
     appliance_sum = np.sum(p_appliances, axis=1)
@@ -105,7 +71,7 @@ def ghost_data(p_agg, p_appliances):
 
     return p_appliances_with_ghost, ghost_percent
 
-
+# Work in progress.
 def process_data(data, dataset_name):
 
     # For AMPDS, only want Input and Output Power

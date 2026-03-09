@@ -6,10 +6,6 @@ import os
 import numpy as np
 import scipy.io
 
-# Settings
-
-# Code
-
 def copy_key_structure(d, fill_value=None):
     """
     Recursively copy dictionary key structure,
@@ -55,57 +51,3 @@ metrics = evaluate_prediction(Y_pred, Y_true)
 energy_accuracy = energy_accuracy(Y_pred, Y_true)
 
 print('')
-
-'''
-data_split = split_data(data, 'k-fold')
-data_split_windowed = copy_key_structure(data_split)
-data_split_windowed['Train']['X'], data_split_windowed['Train']['Y'] = window_data(data_split['Train']['X'], data_split['Train']['Y'], window_length)
-data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length)
-
-save_path = os.path.join(basePath, 'data', f'{dataset_name}_kfold_windowed_5000sample.npz')
-np.savez_compressed(
-    save_path,
-    Train_X=data_split_windowed['Train']['X'],
-    Train_Y=data_split_windowed['Train']['Y'],
-    Test_X=data_split_windowed['Test']['X'],
-    Test_Y=data_split_windowed['Test']['Y'],
-    window_length=window_length
-)
-print(save_path)
-
-loaded = np.load(savepath)
-data_split_windowed = {
-    'Train': {
-        'X': loaded['Train_X'],
-        'Y': loaded['Train_Y']
-    },
-    'Test': {
-        'X': loaded['Test_X'],
-        'Y': loaded['Test_Y']
-    }
-}
-window_length = int(loaded['window_length'])
-
-mdl = {}
-mdl['mdl'] = 'DTW'
-# feat = ['Mean', 'Std']
-feat = None
-# mdl_filepath = trainMdlPM(data_split_windowed['Train'], mdl, basePath)
-# 'C:\\Users\\codett\\PycharmProjects\\Differentially_Private_Smart_Meter\\mdl\\mdl_PM_DTW.npz'
-mdl_filepath = r'C:\\Users\\codett\\PycharmProjects\\Differentially_Private_Smart_Meter\\mdl\\mdl_PM_DTW.npz'
-
-Y_pred_windowed = testMdlPM(data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'], mdl_filepath, feat)
-Y_pred = unwindow_data(Y_pred_windowed, window_length, stride=1)
-Y_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=1)
-metrics = evaluate_prediction(Y_pred, Y_true)
-
-results_csv_filepath = os.path.join(basePath, 'results', 'results.csv')
-
-print('')
-'''
-
-# TO DO
-# Have good dataset with ECO
-# Not good results for correlation maximization. Try DTW next.
-
-# If stuck on pattern-matching, move on to another method.

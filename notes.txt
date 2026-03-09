@@ -35,15 +35,4 @@ Uses REDD dataset - 3s sampling period, mix of One-state, multi-state, continuou
 Preprocessing: Median Filter of 5 samples
 Windowing: Frames of L=25 samples with overlap equal to 15 samples.
 
-DTW Accuracy (Table 2) around 80% Estimation Accuracy E_ACC
-
-Steps:
-1. Pre-processing
-    -- Filter to remove outliers and static noise.
-2. Framing
-    -- Aggregated power frame, device power frames.
-3. Template Matching
-
-Paper forms database the same way I do - 'signatures' are just chunks of time-series data.
-
-redd1.mat is all continuous, ghost power 24%
+DTW Accuracy (Table 2)

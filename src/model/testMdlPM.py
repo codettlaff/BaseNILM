@@ -1,45 +1,12 @@
-#######################################################################################################################
-#######################################################################################################################
-# Title:        BaseNILM toolkit for energy disaggregation
-# Topic:        Non-intrusive load monitoring utilising machine learning, pattern matching and source separation
-# File:         testMdlPM
-# Date:         23.05.2024
-# Author:       Dr. Pascal A. Schirmer
-# Version:      V.1.0
-# Copyright:    Pascal Schirmer
-#######################################################################################################################
-#######################################################################################################################
+# Casey Dettlaff
+# Reference: BaseNILM toolkit for energy disaggregation, Dr. Pascal A. Schirmer
 
-#######################################################################################################################
-# Function Description
-#######################################################################################################################
-"""
-This function implements the testing case of the pattern matching based energy disaggregation.
-"""
-
-#######################################################################################################################
-# Import libs
-#######################################################################################################################
-# ==============================================================================
-# Internal
-# ==============================================================================
 from src.general.features1D import features2D
-
-# ==============================================================================
-# External
-# ==============================================================================
-import dtw
 import numpy as np
 from numpy import load
-from tslearn import metrics
-from dtw import *
 from tqdm import tqdm
-import time
-from sys import getsizeof
-import inspect
 
 def dtw_distance(x,y):
-    # Compute DTW distance between two 1D sequences.
 
     x = np.asarray(x)
     y = np.asarray(y)
@@ -98,11 +65,6 @@ def dtw_distance(x,y):
 # Build Matrix D(i,j) which stores cumulative cost to align x[0:i] and y[0:j]
 # Warping path is perfect diagonal - no warping.
 # DTW is not giving any benefit over simple L1 distance.
-# DTW is dominated by total energy difference, causing low-energy templates to win.
-
-# Option 1: Normalize per window before matching.
-# Option 2: Use Correlation instead of L1
-# --- Shape-based and scale-invariant.
 
 def correlation(x, y):
 
@@ -120,44 +82,14 @@ def correlation(x, y):
 
     return corr
 
-def hybrid_score(x, y):
-
-    eps = 1e-12 # Avoid divide-by-zero errors.
-    alpha = 10 # Shape score scaling.
-    beta = 1 # amplitude score scaling.
-
-    x = np.asarray(x)
-    y = np.asarray(y)
-
-    # Shape term (correlation)
-    x_centered = x - np.mean(x)
-    y_centered = y - np.mean(y)
-
-    x_norm = np.linalg.norm(x_centered) + eps
-    y_norm = np.linalg.norm(y_centered) + eps
-
-    corr = np.dot(x_centered, y_centered) / (x_norm * y_norm)
-    corr = np.clip(corr, -1.0, 1.0)
-    shape_term = 1.0 - corr
-
-    # Magnitude Term
-    Ex = np.sum(x)
-    Ey = np.sum(y)
-    energy_term = abs(Ex - Ey) / (abs(Ex) + eps)
-
-    # Combined Score
-    score = alpha * shape_term + beta * energy_term
-    return score
-
 def testMdlPM(X_test, Y_test, mdl_filepath, feature_selection=None, C=0.01):
 
     method = 'correlation_maximization'
     # method = 'dtw_minimization'
 
-    # Saved Model (Database) Shape
-    mdl = load(mdl_filepath)['arr_0']
+    mdl = load(mdl_filepath)['arr_0'] # Load template database.
 
-    # Mdl Shape
+    # Read template database shape
     N_mdl, T_mdl, numApp_mdl = mdl.shape  # N,T = num_samples, num_timesteps
     numApp_mdl = numApp_mdl - 1
 
@@ -235,8 +167,6 @@ def evaluate_prediction(Y_pred, Y_test):
     if Y_test.ndim != 2:
         raise ValueError("Expected unwindowed data with shape (T, numApp).")
 
-    T, numApp = Y_test.shape
-
     # Overall metrics
     mae = np.mean(np.abs(Y_pred - Y_test))
     rmse = np.sqrt(np.mean((Y_pred - Y_test) ** 2))
@@ -267,102 +197,3 @@ def energy_accuracy(Y_pred, Y_true):
 
     acc = 1 - numerator / denominator
     return acc
-
-# Pattern-matching Predictor
-# 1. Database of past windows (mdl) shaped like (N,T,F,numApp+1)
-# --- T = Timesteps per window
-# --- F = Num features per timestep
-# --- 4th Channel (numApp+1)
-# --- --- Channel 0 -  Input Signal (Aggregate)
-# --- --- Channel 1: - Outputs Signals (Appliances)
-# 2. For each test window X_test[i] (shape (T,F)):
-# --- --- Cheap feature distance to all stored patterns -> keep only top C candidates
-# --- --- Expensive DTW distance to those C candidates
-# --- --- Pick best match
-# --- --- Copy stored output channels into Y_pred
-
-# Results
-# Error is extremely small, but this is only because most values in Y are near 0
-# Most appliances are OFF most of the time
-# NDE is almost 1 - this is what would happen if we predicted near-zero for everything.
-# np.mean(Y_pred) = 7.3e-05
-# np.mean(Y_test) = 0.00209
-# Percentage of zeros in Y_test = 0.2 = 20%
-# Percentage of zeros in Y_pred = 0.4 = 40%
-# Not a mostly zero dataset
-# The model is selecting templates with low aggregate energy, minimizing DTW distance by favoring low-amplitude signals.
-# If two signals differ in amplitude, DTW often prefers the smaller amplitude signal
-
-# Suggested solution.
-# Normalize globally, not per-house.
-# Compute one global peak across training data.
-# Example
-# House A peak = 10 kW
-# House B peak = 3 kW
-# After normalization:
-# 10 kW -> 1.0
-# 3 kW -> 1.0
-# Both look equally large, even though house A appliances are higher power
-# A 2kW kettle in a small house and a 2kW kettle in a large house end up scaled differently relative to other loads.
-
-# Removed normalization
-# np.mean(Y_pred) = 0.6133
-# np.mean(Y_test) = 17.58
-# underestimation problem did not come from per-house normalization
-
-# Problem
-# Matching strategy is choosing low-energy templates.
-# I am matching only on aggregate signal.
-# Implemented energy penatly
-
-# Observation: Energy penalty is always exactly equal to the distance from dtw (temp[0])
-# energy mismatch is already dominating DTW distance
-# rather than minimizing absolute difference, want to minimize relative distance or shape similarity independent of scale.
-# separate into shape similarity and magnitude alignment.
-
-# Feature filtering is always filtering to the same windows.
-# Turned off feature filtering, model is free to search all templates.
-# using maximizing correlation only
-# Now have overestimation
-# -- mean(Y_test) = 17.6
-# --- mean(Y_pred) = 41.5
-# -- NDE = 34
-# -- MAE = 31
-
-# Want to try normalizing windows.
-
-# Normalizing Windows
-# want to remove magnitude bias
-# for each window x:
-# x_norm = x / (sum(x)+epsilon) -> converts the window into a distribution of energy over time.
-# after selecting the best template, we can restore magnitude: Y_pred = Y_template * (sum(x_test)/sum(x_template))
-
-# New results:
-# mean(Y_test) = 17.58
-# mean(Y_pred) = 16.31
-# magnitude bias is gone
-# MAE = 14.88
-# RMSE = 61.05
-# NDE = 2.58
-# remaining error is true modeling error, not optimization bias
-
-# remaining error is coming from:
-# template mismatch - database diversity
-# appliance composition ambiguity
-# similar aggregate shapes from different appliance combinations
-# window length choice
-# correlation not capturing meaningful shape similarity
-
-# Shoot for :
-# NDE 0.5 - 1.0 (reasonable)
-# MAE / mean(Y_test) = 20-40%
-
-# DTW probably won't work any better than correlation because DTW path is perfect diagonal.
-
-# DTW with window normalization, and with feature filtering disabled:
-# Underestimation
-# Mean(Y_pred) = 5.38
-# Mean(Y_test) = 17.58
-# MAE_per_appliance: [0.3469, 62.1490, 0.3564, 0.3469, 0.]: One appliance dominates total error (2nd Appliance)
-
-# Results are actually better for DTW than for correlation, but has bad magnitude bias.

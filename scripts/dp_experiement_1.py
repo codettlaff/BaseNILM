@@ -50,13 +50,15 @@ for redd_filepath in redd_filepath_list:
         mdl = trainMdlPM(data_split_windowed['Train'], mdl_filepath, return_mdl=True)
 
     for epsilon in epsilon_values:
+
+            # Apply Differential Privacy
             data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
             data_split['Test']['X_private'] = data_split['Test']['X']
-
-            # Window Data
             data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
             data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
 
+            # Predict Appliance Profiles
+            Y_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
 
 
 # Create Template Database

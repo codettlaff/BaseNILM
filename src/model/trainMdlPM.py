@@ -5,21 +5,19 @@ from numpy import savez_compressed
 import numpy as np
 import os
 
-def trainMdlPM(data_train, mdl_name, basePath):
+def trainMdlPM(data_train, mdl_filepath, save_mdl=False, return_mdl=False):
 
     N = data_train['X'].shape[0]
     window_length = data_train['X'].shape[1]
     numApp = data_train['Y'].shape[2]
 
     mdl = np.zeros((N, window_length, numApp+1))
-    mdl_filepath = os.path.join(basePath, 'mdl', mdl_name+'.npz')
 
     mdl[:, :, 0] = data_train['X']
     mdl[:, :, 1:] = data_train['Y']
 
-    savez_compressed(mdl_filepath, mdl)
-
-    return mdl_filepath
+    if save_mdl: savez_compressed(mdl_filepath, mdl)
+    if return_mdl: return mdl
 
 # Final Saved Model (mdl)
 # Stores [ Y | X₁ | X₂ | ... | X_numApp ]

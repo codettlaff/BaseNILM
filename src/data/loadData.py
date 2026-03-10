@@ -14,8 +14,8 @@ def load_data(filepath):
     if 'labelInp' not in raw or 'labelOut' not in raw:
         raise ValueError('Missing Input or Output Labels')
 
-    agg_power_labels = [l.strip() for l in raw['labelInp'][2:]]
-    app_power_labels = [l.strip() for l in raw['labelOut'][2:]]
+    app_power_labels = [l.strip() for l in raw['labelInp'][2:]]
+    agg_power_labels = [l.strip() for l in raw['labelOut'][2:]]
     agg_power_units = [l.strip() for l in raw['unitInp'][2:]]
     app_power_units = [l.strip() for l in raw['unitOut'][2:]]
     datetimes = raw['input'][:,0]
@@ -27,10 +27,10 @@ def load_data(filepath):
         'X': app_powers,
         'Y': agg_power,
         'sampling_period': sampling_period,
-        'Y_labels': agg_power_labels,
-        'X_labels': app_power_labels,
-        'Y_units': agg_power_units,
-        'X_units': app_power_units,
+        'Y_labels': app_power_labels,
+        'X_labels': agg_power_labels,
+        'Y_units': app_power_units,
+        'X_units': agg_power_units,
     }
 
 def device_type(profile, tol=1e-3, max_states=5):

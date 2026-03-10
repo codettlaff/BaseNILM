@@ -1,5 +1,7 @@
+import pandas as pd
+
 from data.loadData import load_data, process_data, split_data, window_data, unwindow_data
-from model.testMdlPM import testMdlPM, evaluate_prediction, energy_accuracy
+from model.testMdlPM import testMdlPM, evaluate_prediction, energy_accuracy, get_results
 from model.trainMdlPM import trainMdlPM
 from differential_privacy import differential_privacy
 import os
@@ -24,7 +26,7 @@ mdl_path = os.path.join(base_path, 'mdl')
 redd_path = os.path.join(data_path, 'redd')
 redd_filepath_list = [os.path.join(redd_path, f) for f in os.listdir(redd_path) if f.endswith('.mat')]
 
-epsilon_values = [100000, 0.01,0.1,1,10,100,1000,10000,100000]
+epsilon_values = [0.01,0.1,1,10,100,1000,10000,100000]
 
 n_folds = 5
 window_length = 25
@@ -33,6 +35,10 @@ feature_selection = ['all']
 
 # Run Experiment for Each REDD Filepath
 for redd_filepath in redd_filepath_list:
+
+    data_file_name = os.path.basename(redd_filepath).replace('.mat','')
+    results_filepath = os.path.join(results_path, data_file_name)
+    results = pd.DataFrame()
 
     # Prepare Data
     data = load_data(redd_filepath)
@@ -44,7 +50,7 @@ for redd_filepath in redd_filepath_list:
         data_split_windowed = copy_key_structure(data_split)
 
         # Create Template Database
-        mdl_name = f'REDD_PM_fold{i+1}.npz'
+        mdl_name = f'{data_file_name}_PM_fold{i+1}.npz'
         mdl_filepath = os.path.join(mdl_path, mdl_name)
         data_split_windowed['Train']['X'], data_split_windowed['Train']['Y'] = window_data(data_split['Train']['X'], data_split['Train']['Y'], window_length, stride=stride)
         mdl = trainMdlPM(data_split_windowed['Train'], mdl_filepath, return_mdl=True)
@@ -58,13 +64,20 @@ for redd_filepath in redd_filepath_list:
                 data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
 
                 # Predict Appliance Profiles
-                Y_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
+                X_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
 
                 # Process Results
-                Y_pred = unwindow_data(Y_pred_windowed, window_length, stride=stride)
-                Y_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=stride)
-                metrics = evaluate_prediction(Y_pred, Y_true)
-                energy_accuracy = energy_accuracy(Y_pred, Y_true)
+                X_pred = unwindow_data(X_pred_windowed, window_length, stride=stride)
+                X_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=stride)
+                #metrics = evaluate_prediction(Y_pred, Y_true)
+                #eacc = energy_accuracy(Y_pred, Y_true)
+
+                results_dict = get_results(X_pred, X_true, data['X_labels'])
+                results_dict['fold'] = i+1
+                results_dict['epsilon'] = epsilon
+                results = pd.concat([results, pd.DataFrame([results_dict])], ignore_index=True)
+
+    results.to_csv(results_path, index=False)
 
 
 # Create Template Database

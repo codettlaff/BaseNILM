@@ -195,3 +195,30 @@ def energy_accuracy(Y_pred, Y_true):
 
     acc = 1 - numerator / denominator
     return acc
+
+def get_results(Y_pred, Y_true, Y_labels):
+
+    results = {}
+
+    # Overall metrics
+    mae = np.mean(np.abs(Y_pred - Y_true))
+    rmse = np.sqrt(np.mean((Y_pred - Y_true) ** 2))
+
+    denom = np.sum(Y_true ** 2)
+    nde = np.sum((Y_pred - Y_true) ** 2) / denom if denom != 0 else 0.0
+
+    # Per-appliance metrics
+    mae_per_app = np.mean(np.abs(Y_pred - Y_true), axis=0)
+    rmse_per_app = np.sqrt(np.mean((Y_pred - Y_true) ** 2, axis=0))
+
+    results['agg_MAE'] = mae
+    results['agg_RMSE'] = rmse
+    results['agg_NDE'] = nde
+    results['agg_EACC'] = energy_accuracy(Y_pred, Y_true)
+
+    K = len(Y_labels)
+    for k in range(K):
+        results[f'{Y_labels[k]}_MAE'] = mae_per_app[k]
+        results[f'{Y_labels[k]}_RMSE'] = rmse_per_app[k]
+
+    return results

@@ -28,8 +28,8 @@ data = process_data(data, 'redd')
 data_split = split_data(data, 'k-fold')
 
 epsilon = 1000
-data_split['Test']['X_private'] = differential_privacy(data_split['Test']['X'], data_split['Test']['Y'], epsilon)
-data_split['Test']['Y_private'] = data_split['Test']['Y']
+data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
+data_split['Test']['X_private'] = data_split['Test']['X']
 
 window_length = 25
 stride = 10

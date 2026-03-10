@@ -14,23 +14,23 @@ def load_data(filepath):
     if 'labelInp' not in raw or 'labelOut' not in raw:
         raise ValueError('Missing Input or Output Labels')
 
-    in_labels = [l.strip() for l in raw['labelInp'][2:]]
-    out_labels = [l.strip() for l in raw['labelOut'][2:]]
-    in_units = [l.strip() for l in raw['unitInp'][2:]]
-    out_units = [l.strip() for l in raw['unitOut'][2:]]
+    agg_power_labels = [l.strip() for l in raw['labelInp'][2:]]
+    app_power_labels = [l.strip() for l in raw['labelOut'][2:]]
+    agg_power_units = [l.strip() for l in raw['unitInp'][2:]]
+    app_power_units = [l.strip() for l in raw['unitOut'][2:]]
     datetimes = raw['input'][:,0]
     sampling_period = np.mean(np.diff(datetimes))
-    inp = raw['input'][:, 2:]
-    out = raw['output'][:, 2:]
+    agg_power = raw['input'][:, 2:]
+    app_powers = raw['output'][:, 2:]
 
     return{
-        'X': inp,
-        'Y': out,
+        'X': app_powers,
+        'Y': agg_power,
         'sampling_period': sampling_period,
-        'in_labels': in_labels,
-        'out_labels': out_labels,
-        'in_units': in_units,
-        'out_units': out_units,
+        'Y_labels': agg_power_labels,
+        'X_labels': app_power_labels,
+        'Y_units': agg_power_units,
+        'X_units': app_power_units,
     }
 
 def device_type(profile, tol=1e-3, max_states=5):
@@ -77,202 +77,67 @@ def process_data(data, dataset_name):
     # For AMPDS, only want Input and Output Power
     # Appliance Powers do not sum to the aggregate power.
     if dataset_name == 'ampds':
-        data['X'] = data['X'][:, 0]  # keep column at index 0
+        data['Y'] = data['Y'][:, 0]  # keep column at index 0
         data['in_labels'] = data['in_labels'][0]  # keep entry at index 0
         data['in_units'] = data['in_units'][0]  # keep entry at index 0
-        data['Y'] = data['Y'][:, 0]  # keep column at index 0
+        data['X'] = data['X'][:, 0]  # keep column at index 0
 
     if dataset_name == 'eco':
-        data['X'] = data['X'][:, 0] + data['X'][:, 5] + data['X'][:, 10] # sum P1, P2, P3
-        data['in_labels'] = 'P_agg'  # keep entry at index 0
-        data['in_units'] = 'W'  # keep entry at index 0
+        data['Y'] = data['Y'][:, 0] + data['Y'][:, 5] + data['Y'][:, 10] # sum P1, P2, P3
+        data['Y_labels'] = 'P_agg'  # keep entry at index 0
+        data['Y_units'] = 'W'  # keep entry at index 0
 
     if dataset_name == 'redd':
-        data['X'] = data['X'][:, 0]
-        data['in_labels'] = 'P_agg'
+        data['Y'] = data['Y'][:, 0]
+        data['Y_labels'] = 'P_agg'
 
         device_types = []
-        for i in range(data['Y'].shape[1]):
-            profile = data['Y'][:, i]
+        for i in range(data['X'].shape[1]):
+            profile = data['X'][:, i]
             device_types.append(device_type(profile))
         device_types = list(set(device_types))
         data['device_types'] = device_types
 
         # add 'GHOST' as oth entry to data['Y']['out_labels']
         data['out_labels'].insert(0, 'GHOST')
-        data['Y'], data['ghost_percent'] = ghost_data(data['X'], data['Y'])
+        data['X'], data['ghost_percent'] = ghost_data(data['Y'], data['X'])
 
     return data
 
+def data_table(X_true, Y_true, output_labels, csv_filepath, X_pred=None):
 
-def load_dataset_old(basePath, dataset_name):
-
-    folderpath = os.path.join(basePath, 'data', dataset_name)
-    filepath_list = sorted([
-        os.path.join(folderpath, f)
-        for f in os.listdir(folderpath)
-        if f.endswith(".mat")
-    ])
-    valid_filepath_list = []
-
-    save_filepath = os.path.join(basePath, 'data', dataset_name+'_processed.npz')
-
-    all_input_features = set()
-    all_appliances = set()
-
-    for filepath in filepath_list:
-        raw = scipy.io.loadmat(filepath)
-
-        # Skip REDD HF files
-        if dataset_name == 'redd' and raw['input'].ndim == 3:
-            continue
-
-        # Skip files without input labels
-        if 'labelInp' not in raw or 'labelOut' not in raw:
-            continue
-
-        valid_filepath_list.append(filepath)
-
-        in_labels = [l.strip() for l in raw['labelInp'][2:]]
-        out_labels = [l.strip() for l in raw['labelOut'][2:]]
-
-        all_input_features.update(in_labels)
-        all_appliances.update(out_labels)
-
-    all_input_features = sorted(list(all_input_features))
-    all_appliances = sorted(list(all_appliances))
-
-    input_index = {feat: idx for idx, feat in enumerate(all_input_features)}
-    appliance_index = {app: idx for idx, app in enumerate(all_appliances)}
-
-    X_list = []
-    Y_list = []
-
-    for filepath in valid_filepath_list:
-
-        raw = scipy.io.loadmat(filepath)
-        inp = raw['input']
-        out = raw['output']
-
-        # Build X - Always 1D
-        if inp.ndim == 3: X_raw = inp[:, :, 2]  # (N, T) → active power only
-        else: X_raw = inp[:, 2]  # (N,) or (N, features)
-        X_i = X_raw.astype(np.float32)
-        N = len(X_raw)
-        X_list.append(X_i)
-
-        # Build padded Y - Always 2D. Dimensions depend on # Appliances
-        Y_raw = out[:, 2:]
-        if Y_raw.ndim == 3: Y_raw = Y_raw[:, :, 2] # Keep active power only.
-        Y_raw = Y_raw.astype(np.float32)
-        current_output_labels = [l.strip() for l in raw['labelOut'][2:]]
-
-        Y_i = np.zeros((N, len(all_appliances)), dtype=np.float32)
-        for j, label in enumerate(current_output_labels):
-            col_idx = appliance_index[label]
-            Y_i[:, col_idx] = Y_raw[:, j]
-
-        Y_list.append(Y_i)
-
-    # Normalize
-    '''
-    for i in range(len(X_list)):
-        data = X_list[i]
-        peak = np.max(np.abs(data))
-        X_list[i] = data / peak
-
-    for i in range(len(Y_list)):
-        data = Y_list[i]
-        Y_list[i] = data / peak
-    '''
-
-    X = np.concatenate(X_list)
-    Y = np.concatenate(Y_list, axis=0)
-
-    np.savez_compressed(save_filepath, X=X, Y=Y, output_labels=all_appliances)
-
-    return {
-        'X': X,
-        'Y': Y,
-        'output_labels': all_appliances
-    }
-
-# Post-Load Processing
-# Compute total energy per appliance, keep only top contributers.
-# Limit samples
-# Remove constant columns
-# split training / testing (1-fold split, k-fold split, transfer learning)
-# rolling feature engineering
-# normalization / statistics
-# sampling time computation
-
-def plot_data(data):
-
-    X = data['X']
-    Y = data['Y']
-    labels = data['output_labels']
-    N = len(X)
-    t = np.arange(N)
-
-    plt.figure(figsize=(14, 6))
-
-    plt.plot(t, X, linewidth=2.5, label="Aggregate (X)") # Plot aggregate
-
-    # Plot appliances (thin + transparent)
-    for i in range(Y.shape[1]):
-        plt.plot(
-            t,
-            Y[:, i],
-            linewidth=1,
-            alpha=0.7,
-            label=labels[i]
-        )
-
-    plt.title("Aggregate and Appliance Power")
-    plt.ylabel("Normalized Power")
-    plt.legend(fontsize=8, loc='upper right')
-    plt.tight_layout()
-    plt.show()
-
-def data_table(X_true, Y_true, output_labels, csv_filepath, Y_pred=None):
-
-    # ---------------------------
-    # Determine number of appliances
-    # ---------------------------
-    if Y_true.ndim == 2:              # (T, num_apps)
-        T, num_apps = Y_true.shape
-    elif Y_true.ndim == 3:            # (N, T, num_apps)
-        _, _, num_apps = Y_true.shape
+    if X_true.ndim == 2:              # Not Windowed (T, num_apps)
+        T, num_apps = X_true.shape
+    elif X_true.ndim == 3:            # Windowed (N, T, num_apps)
+        _, _, num_apps = X_true.shape
     else:
         raise ValueError("Y_true must be 2D or 3D.")
 
     if len(output_labels) != num_apps:
         raise ValueError("Length of output_labels must match number of appliances.")
 
-    # ---------------------------
     # Flatten (undo windowing if present)
-    # ---------------------------
-    X_flat = X_true.reshape(-1)
-    Y_true_flat = Y_true.reshape(-1, num_apps)
+    Y_flat = Y_true.reshape(-1)
+    X_true_flat = X_true.reshape(-1, num_apps)
 
-    if Y_pred is not None:
-        if Y_pred.shape[-1] != num_apps:
+    if X_pred is not None:
+        if X_pred.shape[-1] != num_apps:
             raise ValueError("Y_pred appliance dimension mismatch.")
-        Y_pred_flat = Y_pred.reshape(-1, num_apps)
+        X_pred_flat = X_pred.reshape(-1, num_apps)
 
     # ---------------------------
     # Build dataframe
     # ---------------------------
-    data = {"aggregate_power": X_flat}
+    data = {"aggregate_power": Y_flat}
 
     # True appliance columns
     for i, label in enumerate(output_labels):
-        data[f"true_{label}"] = Y_true_flat[:, i]
+        data[f"true_{label}"] = X_true_flat[:, i]
 
     # Predicted appliance columns (optional)
-    if Y_pred is not None:
+    if X_pred is not None:
         for i, label in enumerate(output_labels):
-            data[f"pred_{label}"] = Y_pred_flat[:, i]
+            data[f"pred_{label}"] = X_pred_flat[:, i]
 
     df = pd.DataFrame(data)
 
@@ -293,7 +158,8 @@ def trim_data(data, n_samples):
     trimmed_data = {}
     trimmed_data['X'] = X[:n_samples]
     trimmed_data['Y'] = Y[:n_samples]
-    trimmed_data['output_labels'] = data['output_labels']
+    trimmed_data['X_labels'] = data['X_labels']
+    trimmed_data['Y_labels'] = data['Y_labels']
 
     return trimmed_data
 
@@ -383,22 +249,22 @@ def window_data(X, Y, window_length, stride=1):
     # After windowing, X shape = (N, window_length).
     # After windowing, Y shape = (N, window_length, numApp).
 
-    T = X.shape[0]
-    numApp = Y.shape[1] # Number of Appliances
+    T = Y.shape[0]
+    numApp = X.shape[1] # Number of Appliances
 
     N = (T - window_length) // stride + 1 # Number of Windows
 
-    X_win = np.zeros((N, window_length), dtype=np.float32)
-    Y_win = np.zeros((N, window_length, numApp), dtype=np.float32)
+    Y_win = np.zeros((N, window_length), dtype=np.float32)
+    X_win = np.zeros((N, window_length, numApp), dtype=np.float32)
 
     idx = 0
     for start in range(0, T - window_length + 1, stride):
         end = start + window_length
-        X_win[idx] = X[start:end]
         Y_win[idx] = Y[start:end]
+        X_win[idx] = X[start:end]
         idx += 1
 
-    return X_win, Y_win
+    return Y_win, X_win
 
 def unwindow_data(X_win, window_length, stride):
     """

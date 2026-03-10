@@ -37,8 +37,10 @@ feature_selection = ['all']
 for redd_filepath in redd_filepath_list:
 
     data_file_name = os.path.basename(redd_filepath).replace('.mat','')
-    results_filepath = os.path.join(results_path, data_file_name)
+    results_filepath = os.path.join(results_path, data_file_name+' _results.csv')
+    noisy_profiles_filepath = os.path.join(results_path, data_file_name+'_noisy_profiles.csv')
     results = pd.DataFrame()
+    noisy_profiles = pd.DataFrame()
 
     # Prepare Data
     data = load_data(redd_filepath)
@@ -60,6 +62,10 @@ for redd_filepath in redd_filepath_list:
                 # Apply Differential Privacy
                 data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
                 data_split['Test']['X_private'] = data_split['Test']['X']
+                noisy_profiles = pd.concat(
+                    [noisy_profiles, pd.DataFrame(data_split['Test']['Y_private'], columns=[f'epsilon_{epsilon}'])],
+                    ignore_index=True
+                )
                 data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
                 data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
 
@@ -69,15 +75,15 @@ for redd_filepath in redd_filepath_list:
                 # Process Results
                 X_pred = unwindow_data(X_pred_windowed, window_length, stride=stride)
                 X_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=stride)
-                #metrics = evaluate_prediction(Y_pred, Y_true)
-                #eacc = energy_accuracy(Y_pred, Y_true)
 
                 results_dict = get_results(X_pred, X_true, data['X_labels'])
                 results_dict['fold'] = i+1
                 results_dict['epsilon'] = epsilon
                 results = pd.concat([results, pd.DataFrame([results_dict])], ignore_index=True)
 
-    results.to_csv(results_path, index=False)
+    results.to_csv(results_filepath, index=False)
+    noisy_profiles.to_csv(noisy_profiles_filepath, index=False)
+    print(f'Completed Experiment For {data_file_name}')
 
 
 # Create Template Database

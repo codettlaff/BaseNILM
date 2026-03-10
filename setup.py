@@ -1,7 +1,7 @@
 from setuptools import setup, find_packages
 
 setup(
-    name="dp-smart-meter",          # distribution name (can have dashes)
+    name="dp_nilm",          # distribution name (can have dashes)
     version="0.1.0",
     description="Differentially Private Smart Meter project",
     package_dir={"": "src"},         # tell setuptools packages live in src/

@@ -99,7 +99,7 @@ def process_data(data, dataset_name):
         data['device_types'] = device_types
 
         # add 'GHOST' as oth entry to data['Y']['out_labels']
-        data['out_labels'].insert(0, 'GHOST')
+        data['X_labels'].insert(0, 'GHOST')
         data['X'], data['ghost_percent'] = ghost_data(data['Y'], data['X'])
 
     return data
@@ -234,10 +234,10 @@ def split_data(data, method='1-fold', rT=0.7, rV=0.15, kfold=5, fold=1, shuffle=
     data_split['Val'] = {'X': X_val, 'Y': Y_val}
     data_split['Test'] = {'X': X_test, 'Y': Y_test}
     data_split['sampling_period'] = 'sampling_period'
-    data_split['in_labels'] = data['in_labels']
-    data_split['out_labels'] = data['out_labels']
-    data_split['in_units'] = data['in_units']
-    data_split['out_units'] = data['out_units']
+    data_split['X_labels'] = data['X_labels']
+    data_split['Y_labels'] = data['Y_labels']
+    data_split['X_units'] = data['X_units']
+    data_split['Y_units'] = data['Y_units']
 
     return data_split
 

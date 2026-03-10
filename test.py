@@ -1,4 +1,4 @@
-from data.loadData import load_data, process_data, plot_data, trim_data, split_data, window_data, unwindow_data, data_table
+from data.loadData import load_data, process_data, split_data, window_data, unwindow_data
 from model.testMdlPM import testMdlPM, evaluate_prediction, energy_accuracy
 from model.trainMdlPM import trainMdlPM
 from differential_privacy import differential_privacy

@@ -24,7 +24,7 @@ mdl_path = os.path.join(base_path, 'mdl')
 redd_path = os.path.join(data_path, 'redd')
 redd_filepath_list = [os.path.join(redd_path, f) for f in os.listdir(redd_path) if f.endswith('.mat')]
 
-epsilon_values = [0,1,10,100,1000,10000,100000]
+epsilon_values = [100000, 0.01,0.1,1,10,100,1000,10000,100000]
 
 n_folds = 5
 window_length = 25
@@ -40,25 +40,31 @@ for redd_filepath in redd_filepath_list:
 
     # Run Experiment for Each Fold
     for i in range(n_folds):
-        data_split = split_data(data, 'k-fold', kfold=n_folds, fold=i)
+        data_split = split_data(data, 'k-fold', kfold=n_folds, fold=i+1)
         data_split_windowed = copy_key_structure(data_split)
 
         # Create Template Database
-        mdl_name = f'REDD_PM_fold{i}.npz'
+        mdl_name = f'REDD_PM_fold{i+1}.npz'
         mdl_filepath = os.path.join(mdl_path, mdl_name)
         data_split_windowed['Train']['X'], data_split_windowed['Train']['Y'] = window_data(data_split['Train']['X'], data_split['Train']['Y'], window_length, stride=stride)
         mdl = trainMdlPM(data_split_windowed['Train'], mdl_filepath, return_mdl=True)
 
-    for epsilon in epsilon_values:
+        for epsilon in epsilon_values:
 
-            # Apply Differential Privacy
-            data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
-            data_split['Test']['X_private'] = data_split['Test']['X']
-            data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
-            data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
+                # Apply Differential Privacy
+                data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
+                data_split['Test']['X_private'] = data_split['Test']['X']
+                data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
+                data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
 
-            # Predict Appliance Profiles
-            Y_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
+                # Predict Appliance Profiles
+                Y_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
+
+                # Process Results
+                Y_pred = unwindow_data(Y_pred_windowed, window_length, stride=stride)
+                Y_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=stride)
+                metrics = evaluate_prediction(Y_pred, Y_true)
+                energy_accuracy = energy_accuracy(Y_pred, Y_true)
 
 
 # Create Template Database

@@ -1,9 +1,11 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-def plot_theoretical_eacc_bound(epsilon_values, T, B, sum_y):
+def plot_theoretical_eacc_bound(epsilon_min, epsilon_max, T, B, sum_y, n_points=100):
 
-    epsilon = np.array(epsilon_values)
+    # generate epsilon values on a log scale
+    epsilon = np.logspace(np.log10(epsilon_min), np.log10(epsilon_max), n_points)
+
     B_sum = np.sum(B)
 
     # constant factor from bound
@@ -13,7 +15,7 @@ def plot_theoretical_eacc_bound(epsilon_values, T, B, sum_y):
     eacc_bound = 1 - C / epsilon
 
     plt.figure()
-    plt.plot(epsilon, eacc_bound, marker='o', linestyle='--', label='Theoretical Bound')
+    plt.plot(epsilon, eacc_bound, linestyle='--', label='Theoretical Bound')
 
     plt.xscale('log')
     plt.xlabel('Epsilon')

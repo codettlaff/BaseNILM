@@ -3,7 +3,7 @@ import pandas as pd
 from data.loadData import load_data, process_data, split_data, window_data, unwindow_data
 from model.testMdlPM import testMdlPM, evaluate_prediction, energy_accuracy, get_results
 from model.trainMdlPM import trainMdlPM
-from general.analysis_and_visualization import plot_accuracy_versus_epsilon
+from general.analysis_and_visualization import plot_accuracy_versus_epsilon, plot_theoretical_eacc_bound
 from differential_privacy import differential_privacy
 import os
 import numpy as np
@@ -90,15 +90,28 @@ def run_experiment_1():
         noisy_profiles.to_csv(noisy_profiles_filepath, index=False)
         print(f'Completed Experiment For {data_file_name}')
 
-print('Plotting')
+def plot_results
+    print('Plotting')
+    base_path = os.path.join(os.path.dirname(__file__),'..')
+    results_filepath_1 = os.path.join(base_path, 'results', 'redd1 _results.csv')
+    results_filepath_2 = os.path.join(base_path, 'results', 'redd2 _results.csv')
+    results_filepath_3 = os.path.join(base_path, 'results', 'redd3 _results.csv')
+    results_df_1 = pd.read_csv(results_filepath_1)
+    results_df_2 = pd.read_csv(results_filepath_2)
+    results_df_3 = pd.read_csv(results_filepath_3)
+    results_dfs = [results_df_1, results_df_2, results_df_3]
+    plot_accuracy_versus_epsilon(results_dfs)
+    print('Finished Plotting')
+
 base_path = os.path.join(os.path.dirname(__file__),'..')
-results_path = os.path.join(base_path, 'results')
-results_filepath_1 = os.path.join(base_path, 'results', 'redd1 _results.csv')
-results_filepath_2 = os.path.join(base_path, 'results', 'redd2 _results.csv')
-results_filepath_3 = os.path.join(base_path, 'results', 'redd3 _results.csv')
-results_df_1 = pd.read_csv(results_filepath_1)
-results_df_2 = pd.read_csv(results_filepath_2)
-results_df_3 = pd.read_csv(results_filepath_3)
-results_dfs = [results_df_1, results_df_2, results_df_3]
-plot_accuracy_versus_epsilon(results_dfs)
-print('Finished Plotting')
+data_filepath_1 = os.path.join(base_path, 'data', 'redd', 'redd1.mat')
+data_filepath_2 = os.path.join(base_path, 'data', 'redd', 'redd2.mat')
+data_filepath_3 = os.path.join(base_path, 'data', 'redd', 'redd3.mat')
+data1 = load_data(process_data(data_filepath_1, 'redd'))
+data2 = load_data(process_data(data_filepath_2, 'redd'))
+data3 = load_data(process_data(data_filepath_3, 'redd'))
+
+epsilon_min = 0.01
+epsilon_max = 10000
+
+plot_theoretical_eacc_bound(epsilon_min, epsilon_max, T, B, sum_y)

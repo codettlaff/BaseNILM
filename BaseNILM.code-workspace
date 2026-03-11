@@ -1,0 +1,15 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"window.autoDetectColorScheme": false,
+		"workbench.preferredLightColorTheme": "merko's green theme",
+		"workbench.preferredDarkColorTheme": "Aura Dark",
+		"helium-icon-theme.folders.associations": {
+			
+		},
+	}
+}

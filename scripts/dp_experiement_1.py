@@ -62,10 +62,7 @@ for redd_filepath in redd_filepath_list:
                 # Apply Differential Privacy
                 data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
                 data_split['Test']['X_private'] = data_split['Test']['X']
-                noisy_profiles = pd.concat(
-                    [noisy_profiles, pd.DataFrame(data_split['Test']['Y_private'], columns=[f'epsilon_{epsilon}'])],
-                    ignore_index=True
-                )
+                noisy_profiles[f'epsilon_{epsilon}'] = data_split['Test']['Y_private']
                 data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
                 data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
 

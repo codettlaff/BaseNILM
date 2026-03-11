@@ -90,7 +90,7 @@ def run_experiment_1():
         noisy_profiles.to_csv(noisy_profiles_filepath, index=False)
         print(f'Completed Experiment For {data_file_name}')
 
-def plot_results
+def plot_results():
     print('Plotting')
     base_path = os.path.join(os.path.dirname(__file__),'..')
     results_filepath_1 = os.path.join(base_path, 'results', 'redd1 _results.csv')
@@ -107,11 +107,23 @@ base_path = os.path.join(os.path.dirname(__file__),'..')
 data_filepath_1 = os.path.join(base_path, 'data', 'redd', 'redd1.mat')
 data_filepath_2 = os.path.join(base_path, 'data', 'redd', 'redd2.mat')
 data_filepath_3 = os.path.join(base_path, 'data', 'redd', 'redd3.mat')
-data1 = load_data(process_data(data_filepath_1, 'redd'))
-data2 = load_data(process_data(data_filepath_2, 'redd'))
-data3 = load_data(process_data(data_filepath_3, 'redd'))
+data1 = process_data(load_data(data_filepath_1), 'redd')
+data2 = process_data(load_data(data_filepath_2), 'redd')
+data3 = process_data(load_data(data_filepath_3), 'redd')
+
+# T is the number of samples in data1['Y']
+T = data1['Y'].shape[0]
+
+# B is the maximum value in any column of data1['X']
+B = data1['X'].max(axis=0)
+B_max = data1['X'].max()
+
+sum_y = np.sum(data1['Y'])
 
 epsilon_min = 0.01
 epsilon_max = 10000
 
-plot_theoretical_eacc_bound(epsilon_min, epsilon_max, T, B, sum_y)
+epsilon_min = 25
+epsilon_max = 600
+
+plot_theoretical_eacc_bound(epsilon_min, epsilon_max, T, B_max, sum_y)

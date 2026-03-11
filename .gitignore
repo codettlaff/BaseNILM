@@ -1,3 +1,4 @@
 /docu/DOC_231122_Docu_BaseNILM.docx
 venv/
 .idea/
+*.pyc

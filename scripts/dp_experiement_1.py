@@ -37,7 +37,7 @@ feature_selection = ['all']
 for redd_filepath in redd_filepath_list:
 
     data_file_name = os.path.basename(redd_filepath).replace('.mat','')
-    results_filepath = os.path.join(results_path, data_file_name+' _results.csv')
+    results_filepath = os.path.join(results_path, data_file_name+'_results.csv')
     noisy_profiles_filepath = os.path.join(results_path, data_file_name+'_noisy_profiles.csv')
     results = pd.DataFrame()
     noisy_profiles = pd.DataFrame()
@@ -57,30 +57,34 @@ for redd_filepath in redd_filepath_list:
         data_split_windowed['Train']['X'], data_split_windowed['Train']['Y'] = window_data(data_split['Train']['X'], data_split['Train']['Y'], window_length, stride=stride)
         mdl = trainMdlPM(data_split_windowed['Train'], mdl_filepath, return_mdl=True)
 
+        noisy_profiles_i = pd.DataFrame()
+        noisy_profiles_i['fold'] = i + 1
+
         for epsilon in epsilon_values:
 
-                # Apply Differential Privacy
-                data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
-                data_split['Test']['X_private'] = data_split['Test']['X']
-                noisy_profiles[f'epsilon_{epsilon}'] = data_split['Test']['Y_private']
-                data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
-                data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
+            # Apply Differential Privacy
+            data_split['Test']['Y_private'] = differential_privacy(data_split['Test']['Y'], data_split['Test']['X'], epsilon)
+            data_split['Test']['X_private'] = data_split['Test']['X']
+            noisy_profiles_i[f'epsilon_{epsilon}'] = data_split['Test']['Y_private']
+            data_split_windowed['Test']['X'], data_split_windowed['Test']['Y'] = window_data(data_split['Test']['X'], data_split['Test']['Y'], window_length, stride=stride)
+            data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'] = window_data(data_split['Test']['X_private'], data_split['Test']['Y_private'], window_length, stride=stride)
 
-                # Predict Appliance Profiles
-                X_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
+            # Predict Appliance Profiles
+            X_pred_windowed = testMdlPM(data_split_windowed['Test']['X_private'], data_split_windowed['Test']['Y_private'], mdl, feature_selection)
 
-                # Process Results
-                X_pred = unwindow_data(X_pred_windowed, window_length, stride=stride)
-                X_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=stride)
+            # Process Results
+            X_pred = unwindow_data(X_pred_windowed, window_length, stride=stride)
+            X_true = unwindow_data(data_split_windowed['Test']['Y'], window_length, stride=stride)
 
-                results_dict = get_results(X_pred, X_true, data['X_labels'])
-                results_dict['fold'] = i+1
-                results_dict['epsilon'] = epsilon
-                results = pd.concat([results, pd.DataFrame([results_dict])], ignore_index=True)
+            results_dict = get_results(X_pred, X_true, data['X_labels'])
+            results_dict['fold'] = i+1
+            results_dict['epsilon'] = epsilon
+            results = pd.concat([results, pd.DataFrame([results_dict])], ignore_index=True)
+
+        noisy_profiles = pd.concat([noisy_profiles, noisy_profiles_i], ignore_index=True)
 
     results.to_csv(results_filepath, index=False)
     noisy_profiles.to_csv(noisy_profiles_filepath, index=False)
     print(f'Completed Experiment For {data_file_name}')
-
 
 # Create Template Database

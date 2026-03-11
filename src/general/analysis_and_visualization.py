@@ -1,6 +1,29 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+def plot_theoretical_eacc_bound(epsilon_values, T, B, sum_y):
+
+    epsilon = np.array(epsilon_values)
+    B_sum = np.sum(B)
+
+    # constant factor from bound
+    C = (T * np.sqrt(8) * B_sum) / (2 * sum_y)
+
+    # compute bound
+    eacc_bound = 1 - C / epsilon
+
+    plt.figure()
+    plt.plot(epsilon, eacc_bound, marker='o', linestyle='--', label='Theoretical Bound')
+
+    plt.xscale('log')
+    plt.xlabel('Epsilon')
+    plt.ylabel('Energy Accuracy Upper Bound')
+    plt.title('Theoretical Accuracy Bound vs Epsilon')
+    plt.grid(True)
+    plt.legend()
+
+    plt.show()
+
 def plot_accuracy_versus_epsilon(results_dfs):
 
     plt.figure()
@@ -27,3 +50,4 @@ def plot_accuracy_versus_epsilon(results_dfs):
     plt.grid(True)
 
     plt.show()
+

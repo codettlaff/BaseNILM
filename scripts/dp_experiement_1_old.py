@@ -27,7 +27,7 @@ def run_experiment_1():
     mdl_path = os.path.join(base_path, 'mdl')
 
     redd_path = os.path.join(data_path, 'redd')
-    redd_filepath_list = [os.path.join(redd_path, f) for f in os.listdir(redd_path) if f.endswith('.mat')]
+    redd_filepath_list = [os.path.join(redd_path, f) for f in os.listdir(redd_path) if f.endswith('.mat') and 'HF' not in f]
 
     epsilon_values = [0.01,0.1,1,10,100,1000,10000,100000]
 

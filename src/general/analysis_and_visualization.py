@@ -53,7 +53,7 @@ def plot_accuracy_versus_epsilon(results_dfs):
 
     plt.show()
 
-def plot_results_with_theoretical_bound(results_dfs, epsilon_min, epsilon_max, T, B, sum_y, n_points=100):
+def plot_results_with_theoretical_bound(results_df, epsilon_min, epsilon_max, T, B, sum_y, n_points=100):
 
     # --- Compute theoretical bound ---
     epsilon_bound = np.logspace(np.log10(epsilon_min), np.log10(epsilon_max), n_points)
@@ -63,9 +63,16 @@ def plot_results_with_theoretical_bound(results_dfs, epsilon_min, epsilon_max, T
 
     eacc_bound = 1 - C / epsilon_bound
 
+    # --- Compute experimental results ---
+    grouped = results_df.groupby('epsilon').mean(numeric_only=True).reset_index()
+    grouped = grouped.sort_values('epsilon')
+
+    epsilon_exp = grouped['epsilon']
+    eacc_exp = grouped['agg_EACC']
+
+    # --- Plot ---
     plt.figure()
 
-    # Plot theoretical bound
     plt.plot(
         epsilon_bound,
         eacc_bound,
@@ -74,21 +81,12 @@ def plot_results_with_theoretical_bound(results_dfs, epsilon_min, epsilon_max, T
         label='Theoretical Bound'
     )
 
-    # --- Plot experimental results for each house ---
-    for i, results_df in enumerate(results_dfs):
-
-        grouped = results_df.groupby('epsilon').mean(numeric_only=True).reset_index()
-        grouped = grouped.sort_values('epsilon')
-
-        epsilon_exp = grouped['epsilon']
-        eacc_exp = grouped['agg_EACC']
-
-        plt.plot(
-            epsilon_exp,
-            eacc_exp,
-            marker='o',
-            label=f'House {i+1}'
-        )
+    plt.plot(
+        epsilon_exp,
+        eacc_exp,
+        marker='o',
+        label='Experimental EACC'
+    )
 
     plt.xscale('log')
     plt.xlabel('Epsilon')

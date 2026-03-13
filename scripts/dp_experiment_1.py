@@ -169,9 +169,6 @@ def plot_results_with_bound():
     paths = get_paths()
     redd_files = get_redd_files(paths["redd"])
 
-    results_dfs = []
-
-    # --- load results for each house ---
     for redd_filepath in redd_files:
 
         data_file_name = os.path.basename(redd_filepath).replace(".mat","")
@@ -186,7 +183,7 @@ def plot_results_with_bound():
             f"{data_file_name}_noisy_profiles.csv"
         )
 
-        # Load experiment results
+        # --- Load experiment results ---
         results_df = pd.read_csv(results_filepath)
 
         # Load noisy profiles (optional)
@@ -198,28 +195,26 @@ def plot_results_with_bound():
             (results_df['agg_EACC'] <= 1)
         ]
 
-        results_dfs.append(results_df)
+        # --- Load original data for THIS house ---
+        data = process_data(load_data(redd_filepath), "redd")
 
-    # --- compute theoretical bound parameters using first house ---
-    data = process_data(load_data(redd_files[0]), "redd")
+        T = data['Y'].shape[0]
+        B = data['X'].max(axis=0)
+        sum_y = np.sum(data['Y'])
 
-    T = data['Y'].shape[0]
-    B = data['X'].max(axis=0)
-    sum_y = np.sum(data['Y'])
+        # epsilon range for plotting
+        epsilon_min = results_df['epsilon'].min()
+        epsilon_max = results_df['epsilon'].max()
 
-    # determine epsilon range across all houses
-    epsilon_min = min(df['epsilon'].min() for df in results_dfs)
-    epsilon_max = max(df['epsilon'].max() for df in results_dfs)
-
-    # --- plot all houses with bound ---
-    plot_results_with_theoretical_bound(
-        results_dfs,
-        epsilon_min,
-        epsilon_max,
-        T,
-        B,
-        sum_y
-    )
+        # --- Plot ---
+        plot_results_with_theoretical_bound(
+            results_df,
+            epsilon_min,
+            epsilon_max,
+            T,
+            B,
+            sum_y
+        )
 
 if __name__ == "__main__":
 

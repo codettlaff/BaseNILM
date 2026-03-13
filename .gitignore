@@ -1,0 +1,19 @@
+# Data
+data/*
+
+# Results
+results/*
+
+# Python
+__pycache__/
+*.pyc
+
+# IDE
+.idea/
+
+# Packaging
+*.egg-info/
+
+# Large files
+*.npz
+*.mat

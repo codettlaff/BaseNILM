@@ -9,7 +9,7 @@ import numpy as np
 import scipy.io
 
 # Experiment Parameters
-EPSILON_VALUES = [50,75,100,250,500,1000,100000]
+EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
 N_FOLDS = 5
 WINDOW_LENGTH = 25
 STRIDE = 10

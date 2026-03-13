@@ -2,14 +2,14 @@ import pandas as pd
 from data.loadData import load_data, process_data, split_data, window_data, unwindow_data
 from model.testMdlPM import testMdlPM, evaluate_prediction, energy_accuracy, get_results
 from model.trainMdlPM import trainMdlPM
-from general.analysis_and_visualization import plot_accuracy_versus_epsilon, plot_theoretical_eacc_bound
+from general.analysis_and_visualization import plot_accuracy_versus_epsilon, plot_theoretical_eacc_bound, plot_results_with_theoretical_bound
 from differential_privacy import differential_privacy
 import os
 import numpy as np
 import scipy.io
 
 # Experiment Parameters
-EPSILON_VALUES = [0.01,0.1,1,10,100,1000,10000,100000]
+EPSILON_VALUES = [50,75,100,250,500,1000,100000]
 N_FOLDS = 5
 WINDOW_LENGTH = 25
 STRIDE = 10
@@ -164,7 +164,65 @@ def plot_theoretical_bounds():
 
     plot_theoretical_eacc_bound(epsilon_min, epsilon_max, T, B_max, sum_y)
 
+def plot_results_with_bound():
+
+    paths = get_paths()
+    redd_files = get_redd_files(paths["redd"])
+
+    results_dfs = []
+
+    # --- load results for each house ---
+    for redd_filepath in redd_files:
+
+        data_file_name = os.path.basename(redd_filepath).replace(".mat","")
+
+        results_filepath = os.path.join(
+            paths["results"],
+            f"{data_file_name}_results.csv"
+        )
+
+        noisy_profiles_filepath = os.path.join(
+            paths["results"],
+            f"{data_file_name}_noisy_profiles.csv"
+        )
+
+        # Load experiment results
+        results_df = pd.read_csv(results_filepath)
+
+        # Load noisy profiles (optional)
+        noisy_profiles_df = pd.read_csv(noisy_profiles_filepath)
+
+        # Filter EACC range
+        results_df = results_df[
+            (results_df['agg_EACC'] >= 0) &
+            (results_df['agg_EACC'] <= 1)
+        ]
+
+        results_dfs.append(results_df)
+
+    # --- compute theoretical bound parameters using first house ---
+    data = process_data(load_data(redd_files[0]), "redd")
+
+    T = data['Y'].shape[0]
+    B = data['X'].max(axis=0)
+    sum_y = np.sum(data['Y'])
+
+    # determine epsilon range across all houses
+    epsilon_min = min(df['epsilon'].min() for df in results_dfs)
+    epsilon_max = max(df['epsilon'].max() for df in results_dfs)
+
+    # --- plot all houses with bound ---
+    plot_results_with_theoretical_bound(
+        results_dfs,
+        epsilon_min,
+        epsilon_max,
+        T,
+        B,
+        sum_y
+    )
+
 if __name__ == "__main__":
 
-    run_experiment()
-    plot_theoretical_bounds()
+    # run_experiment()
+    # plot_theoretical_bounds()
+    plot_results_with_bound()

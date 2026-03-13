@@ -53,3 +53,50 @@ def plot_accuracy_versus_epsilon(results_dfs):
 
     plt.show()
 
+def plot_results_with_theoretical_bound(results_dfs, epsilon_min, epsilon_max, T, B, sum_y, n_points=100):
+
+    # --- Compute theoretical bound ---
+    epsilon_bound = np.logspace(np.log10(epsilon_min), np.log10(epsilon_max), n_points)
+
+    B_sum = np.sum(B)
+    C = (T * np.sqrt(8) * B_sum) / (2 * sum_y)
+
+    eacc_bound = 1 - C / epsilon_bound
+
+    plt.figure()
+
+    # Plot theoretical bound
+    plt.plot(
+        epsilon_bound,
+        eacc_bound,
+        linestyle='--',
+        color='black',
+        label='Theoretical Bound'
+    )
+
+    # --- Plot experimental results for each house ---
+    for i, results_df in enumerate(results_dfs):
+
+        grouped = results_df.groupby('epsilon').mean(numeric_only=True).reset_index()
+        grouped = grouped.sort_values('epsilon')
+
+        epsilon_exp = grouped['epsilon']
+        eacc_exp = grouped['agg_EACC']
+
+        plt.plot(
+            epsilon_exp,
+            eacc_exp,
+            marker='o',
+            label=f'House {i+1}'
+        )
+
+    plt.xscale('log')
+    plt.xlabel('Epsilon')
+    plt.ylabel('Energy Accuracy')
+    plt.title('Experimental Accuracy vs Theoretical Bound')
+
+    plt.grid(True)
+    plt.legend()
+
+    plt.show()
+

@@ -1,0 +1,5 @@
+Metadata-Version: 2.1
+Name: dp-smart-meter
+Version: 0.1.0
+Summary: Differentially Private Smart Meter project
+Requires-Python: >=3.9

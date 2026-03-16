@@ -218,6 +218,6 @@ def plot_results_with_bound():
 
 if __name__ == "__main__":
 
-    # run_experiment()
+    run_experiment()
     # plot_theoretical_bounds()
     plot_results_with_bound()

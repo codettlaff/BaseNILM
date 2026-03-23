@@ -148,22 +148,6 @@ def run_experiment():
 
         print(f"Completed Experiment For {data_file_name}")
 
-def plot_theoretical_bounds():
-
-    paths = get_paths()
-
-    data_filepath = os.path.join(paths["data"], "redd", "redd1.mat")
-    data = process_data(load_data(data_filepath), "redd")
-
-    T = data['Y'].shape[0]
-    B_max = data['X'].max()
-    sum_y = np.sum(data['Y'])
-
-    epsilon_min = 25
-    epsilon_max = 600
-
-    plot_theoretical_eacc_bound(epsilon_min, epsilon_max, T, B_max, sum_y)
-
 def plot_results_with_bound():
 
     paths = get_paths()
@@ -207,17 +191,23 @@ def plot_results_with_bound():
         epsilon_max = results_df['epsilon'].max()
 
         # --- Plot ---
+        plot_filepath = os.path.join(
+            paths["results"],
+            f"{data_file_name}_eacc_plot.png"
+        )
+
         plot_results_with_theoretical_bound(
             results_df,
             epsilon_min,
             epsilon_max,
             T,
             B,
-            sum_y
+            sum_y,
+            plot_filepath,
+            show_plot=False
         )
 
 if __name__ == "__main__":
 
     run_experiment()
-    # plot_theoretical_bounds()
     plot_results_with_bound()

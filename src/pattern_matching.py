@@ -155,10 +155,7 @@ def correlation(x, y):
 
     return corr
 
-def testMdlPM(X_test, Y_test, mdl, feature_selection=None, C=0.01):
-
-    method = 'correlation_maximization'
-    # method = 'dtw_minimization'
+def testMdlPM(X_test, Y_test, mdl, method='correlation_maximization', feature_selection=None, C=0.01):
 
     # Read template database shape
     N_mdl, T_mdl, numApp_mdl = mdl.shape  # N,T = num_samples, num_timesteps

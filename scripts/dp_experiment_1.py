@@ -13,6 +13,8 @@ WINDOW_LENGTH = 25
 STRIDE = 10
 FEATURE_SELECTION = ['all']
 
+EXPERIMENT_NAME = 'experiment_1_correlation_minimization'
+
 def copy_key_structure(d, fill_value=None):
     """
     Recursively copy dictionary key structure,
@@ -94,7 +96,7 @@ def evaluate_epsilons(data_split, data_split_windowed, mdl, data, fold):
             stride=STRIDE
         )
 
-        X_pred_w = testMdlPM(Xp_w, Yp_w, mdl, FEATURE_SELECTION)
+        X_pred_w = testMdlPM(Xp_w, Yp_w, mdl, method='correlation_maximization', feature_selection=FEATURE_SELECTION)
 
         X_pred = unwindow_data(X_pred_w, WINDOW_LENGTH, stride=STRIDE)
         X_true = unwindow_data(Y_w, WINDOW_LENGTH, stride=STRIDE)
@@ -110,14 +112,15 @@ def evaluate_epsilons(data_split, data_split_windowed, mdl, data, fold):
 def run_experiment():
 
     paths = get_paths()
+    results_folderpath = os.path.join(paths['results'], EXPERIMENT_NAME)
     redd_files = get_redd_files(paths["redd"])
 
     for redd_filepath in redd_files:
 
         data_file_name = os.path.basename(redd_filepath).replace(".mat","")
 
-        results_filepath = os.path.join(paths["results"], f"{data_file_name}_results.csv")
-        noisy_filepath = os.path.join(paths["results"], f"{data_file_name}_noisy_profiles.csv")
+        results_filepath = os.path.join(results_folderpath, f"{data_file_name}_results.csv")
+        noisy_filepath = os.path.join(results_folderpath, f"{data_file_name}_noisy_profiles.csv")
 
         data = process_data(load_data(redd_filepath), "redd")
 

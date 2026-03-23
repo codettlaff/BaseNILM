@@ -1,6 +1,6 @@
 import pandas as pd
-from data.loadData import load_data, process_data, split_data, window_data, unwindow_data
-from pattern_matching import testMdlPM, trainMdlPM, get_results
+from data.loadData import load_data, process_data, split_data
+from pattern_matching import testMdlPM, trainMdlPM, get_results, window_data, unwindow_data
 from analysis_and_visualization import plot_results_with_theoretical_bound
 from differential_privacy import differential_privacy
 import os

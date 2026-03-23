@@ -79,6 +79,60 @@ def trainMdlPM(data_train, mdl_filepath, save_mdl=False, return_mdl=False):
     if save_mdl: savez_compressed(mdl_filepath, mdl)
     if return_mdl: return mdl
 
+def window_data(X, Y, window_length, stride=1):
+
+    # N = number of windows
+    # Before windowing, X shape = (T,).
+    # Before windowing, Y shape = (T, numApp).
+    # After windowing, X shape = (N, window_length).
+    # After windowing, Y shape = (N, window_length, numApp).
+
+    T = Y.shape[0]
+    numApp = X.shape[1] # Number of Appliances
+
+    N = (T - window_length) // stride + 1 # Number of Windows
+
+    Y_win = np.zeros((N, window_length), dtype=np.float32)
+    X_win = np.zeros((N, window_length, numApp), dtype=np.float32)
+
+    idx = 0
+    for start in range(0, T - window_length + 1, stride):
+        end = start + window_length
+        Y_win[idx] = Y[start:end]
+        X_win[idx] = X[start:end]
+        idx += 1
+
+    return Y_win, X_win
+
+def unwindow_data(X_win, window_length, stride):
+    """
+    Inverse of window_data for Y-type input
+    (N, window_length, numApp) → (T_original, numApp)
+    """
+
+    N, T, numApp = X_win.shape
+
+    if T != window_length:
+        raise ValueError("window_length mismatch.")
+
+    # Recover original length T
+    T_original = (N - 1) * stride + window_length
+
+    X_recon = np.zeros((T_original, numApp))
+    counts = np.zeros(T_original)
+
+    for i in range(N):
+        start = i * stride
+        end = start + window_length
+
+        X_recon[start:end] += X_win[i]
+        counts[start:end] += 1
+
+    counts[counts == 0] = 1
+    X_recon /= counts[:, None]
+
+    return X_recon
+
 def dtw_distance(x,y):
 
     x = np.asarray(x)

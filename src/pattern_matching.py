@@ -1,7 +1,6 @@
 # Casey Dettlaff
 # Reference: BaseNILM toolkit for energy disaggregation, Dr. Pascal A. Schirmer
 
-from src.general.features1D import features2D
 from numpy import savez_compressed
 import numpy as np
 from tqdm import tqdm

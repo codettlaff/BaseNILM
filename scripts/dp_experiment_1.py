@@ -112,7 +112,8 @@ def evaluate_epsilons(data_split, data_split_windowed, mdl, data, fold):
 def run_experiment():
 
     paths = get_paths()
-    results_folderpath = os.path.join(paths['results'], EXPERIMENT_NAME)
+    results_folderpath = os.path.join(paths["results"], EXPERIMENT_NAME)
+    if not os.path.exists(results_folderpath): os.makedirs(results_folderpath)
     redd_files = get_redd_files(paths["redd"])
 
     for redd_filepath in redd_files:
@@ -152,27 +153,23 @@ def run_experiment():
 def plot_results_with_bound():
 
     paths = get_paths()
-    redd_files = get_redd_files(paths["redd"])
 
-    for redd_filepath in redd_files:
+    # --- Find all result CSVs ---
+    result_files = [
+        f for f in os.listdir(paths["results"])
+        if f.endswith("_results.csv")
+    ]
+    results_folderpath = os.path.join(paths["results"], EXPERIMENT_NAME)
+    if not os.path.exists(results_folderpath): os.makedirs(results_folderpath)
 
-        data_file_name = os.path.basename(redd_filepath).replace(".mat","")
+    for results_file in result_files:
 
-        results_filepath = os.path.join(
-            paths["results"],
-            f"{data_file_name}_results.csv"
-        )
+        data_file_name = results_file.replace("_results.csv", "")
 
-        noisy_profiles_filepath = os.path.join(
-            paths["results"],
-            f"{data_file_name}_noisy_profiles.csv"
-        )
+        results_filepath = os.path.join(paths["results"], results_file)
 
         # --- Load experiment results ---
         results_df = pd.read_csv(results_filepath)
-
-        # Load noisy profiles (optional)
-        noisy_profiles_df = pd.read_csv(noisy_profiles_filepath)
 
         # Filter EACC range
         results_df = results_df[
@@ -180,7 +177,13 @@ def plot_results_with_bound():
             (results_df['agg_EACC'] <= 1)
         ]
 
-        # --- Load original data for THIS house ---
+        # --- Try to load original data ONLY if needed ---
+        # (still required for theoretical bound)
+        redd_filepath = os.path.join(
+            paths["redd"],
+            f"{data_file_name}.mat"
+        )
+
         data = process_data(load_data(redd_filepath), "redd")
 
         T = data['Y'].shape[0]
@@ -193,7 +196,7 @@ def plot_results_with_bound():
 
         # --- Plot ---
         plot_filepath = os.path.join(
-            paths["results"],
+            results_folderpath,
             f"{data_file_name}_eacc_plot.png"
         )
 
@@ -205,8 +208,10 @@ def plot_results_with_bound():
             B,
             sum_y,
             plot_filepath,
-            show_plot=False
+            show_plot=True
         )
+
+        print(f"Plotted: {data_file_name}")
 
 if __name__ == "__main__":
 

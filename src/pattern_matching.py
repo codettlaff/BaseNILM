@@ -67,14 +67,14 @@ def features(data, feature_selection):
 
 def trainMdlPM(data_train, mdl_filepath, save_mdl=False, return_mdl=False):
 
-    N = data_train['X'].shape[0]
-    window_length = data_train['X'].shape[1]
-    numApp = data_train['Y'].shape[2]
+    N = data_train['Y'].shape[0]
+    window_length = data_train['Y'].shape[1]
+    numApp = data_train['X'].shape[2]
 
     mdl = np.zeros((N, window_length, numApp+1))
 
-    mdl[:, :, 0] = data_train['X']
-    mdl[:, :, 1:] = data_train['Y']
+    mdl[:, :, 0] = data_train['Y']
+    mdl[:, :, 1:] = data_train['X']
 
     if save_mdl: savez_compressed(mdl_filepath, mdl)
     if return_mdl: return mdl
@@ -82,10 +82,10 @@ def trainMdlPM(data_train, mdl_filepath, save_mdl=False, return_mdl=False):
 def window_data(X, Y, window_length, stride=1):
 
     # N = number of windows
-    # Before windowing, X shape = (T,).
-    # Before windowing, Y shape = (T, numApp).
-    # After windowing, X shape = (N, window_length).
-    # After windowing, Y shape = (N, window_length, numApp).
+    # Before windowing, Y shape = (T,).
+    # Before windowing, X shape = (T, numApp).
+    # After windowing, Y shape = (N, window_length).
+    # After windowing, X shape = (N, window_length, numApp).
 
     T = Y.shape[0]
     numApp = X.shape[1] # Number of Appliances
@@ -102,7 +102,7 @@ def window_data(X, Y, window_length, stride=1):
         X_win[idx] = X[start:end]
         idx += 1
 
-    return Y_win, X_win
+    return X_win, Y_win
 
 def unwindow_data(X_win, window_length, stride):
     """
@@ -218,19 +218,19 @@ def testMdlPM(X_test, Y_test, mdl, method='correlation_maximization', feature_se
     C = int(np.floor(C * N_mdl))  # number of candidate model patterns to compare using DTW
 
     # Test Data Shape
-    N_Xtest, T_Xtest = X_test.shape
-    N_Ytest, T_Ytest, numApp_Ytest = Y_test.shape
+    N_Xtest, T_Xtest, numApp_Xtest = X_test.shape
+    N_Ytest, T_Ytest = Y_test.shape
 
-    Y_pred = np.zeros((N_Ytest, T_Ytest, numApp_Ytest))
+    X_pred = np.zeros((N_Ytest, T_Ytest, numApp_Xtest))
 
     # Check mdl and test data are formatted the same
     if not (T_mdl == T_Xtest == T_Ytest): raise ValueError(f'Timestep mismatch: mdl={T_mdl}, X_test={T_Xtest}, Y_test={T_Ytest}')
-    if numApp_mdl != numApp_Ytest : raise ValueError(f'numApp mismatch: mdl={numApp_mdl}, Y_test={numApp_Ytest}')
+    if numApp_mdl != numApp_Xtest : raise ValueError(f'numApp mismatch: mdl={numApp_mdl}, Y_test={numApp_Xtest}')
 
     # Feature Extraction
     if feature_selection:
         features_mdl = features(mdl[:, :, 0], feature_selection)
-        features_X = features(X_test, feature_selection)
+        features_Y = features(Y_test, feature_selection)
 
     sel_list = [] # For debugging
 
@@ -238,7 +238,7 @@ def testMdlPM(X_test, Y_test, mdl, method='correlation_maximization', feature_se
     for i in tqdm(range(N_Xtest)):
 
         if feature_selection:
-            feature_diff = abs(features_X[i, :] - features_mdl)
+            feature_diff = abs(features_Y[i, :] - features_mdl)
             feature_diff = np.sum(feature_diff, axis=1)  # Reduce over feature dimension
             C_eff = min(C, N_mdl)
             idx = np.argpartition(feature_diff, C_eff)[:C_eff]  # Indices of C smallest feature distances
@@ -251,16 +251,16 @@ def testMdlPM(X_test, Y_test, mdl, method='correlation_maximization', feature_se
         # For top candidates, Compute Correlation / Distance
         dist = np.zeros(C_eff)
 
-        x = X_test[i, :]
-        x_norm = x / np.sum(x)
+        y = Y_test[i, :]
+        y_norm = y / np.sum(y)
 
         for ii in range(C_eff):
 
             template = tempMdl[ii, :, 0]
             template_norm = template / np.sum(template)
 
-            if method.split('_')[0] == 'correlation': dist_ii = correlation(x_norm, template_norm)
-            elif method.split('_')[0] == 'dtw': dist_ii, path = dtw_distance(x_norm, template_norm)
+            if method.split('_')[0] == 'correlation': dist_ii = correlation(y_norm, template_norm)
+            elif method.split('_')[0] == 'dtw': dist_ii, path = dtw_distance(y_norm, template_norm)
             else: raise ValueError(f'Unknown Method {method}.')
 
             dist[ii] = dist_ii
@@ -277,9 +277,9 @@ def testMdlPM(X_test, Y_test, mdl, method='correlation_maximization', feature_se
         best_template_apps = tempMdl[sel, :, 1:]
         # scale = np.sum(x) / np.sum(best_template_agg) # If best_template is all 0, this will cause error
         # scale = np.sum(x) / np.sum(np.sum(best_template_apps, axis=1))
-        Y_pred[i, :, :] = best_template_apps
+        X_pred[i, :, :] = best_template_apps
 
-    return Y_pred
+    return X_pred
 
 def evaluate_prediction(Y_pred, Y_test):
 

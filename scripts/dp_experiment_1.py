@@ -99,7 +99,7 @@ def evaluate_epsilons(data_split, data_split_windowed, mdl, data, fold):
         X_pred_w = testMdlPM(Xp_w, Yp_w, mdl, method='correlation_maximization', feature_selection=FEATURE_SELECTION)
 
         X_pred = unwindow_data(X_pred_w, WINDOW_LENGTH, stride=STRIDE)
-        X_true = unwindow_data(Y_w, WINDOW_LENGTH, stride=STRIDE)
+        X_true = unwindow_data(X_w, WINDOW_LENGTH, stride=STRIDE)
 
         r = get_results(X_pred, X_true, data['X_labels'])
         r["fold"] = fold

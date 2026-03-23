@@ -1,12 +1,10 @@
 import pandas as pd
 from data.loadData import load_data, process_data, split_data, window_data, unwindow_data
-from model.testMdlPM import testMdlPM, evaluate_prediction, energy_accuracy, get_results
-from model.trainMdlPM import trainMdlPM
+from pattern_matching import testMdlPM, trainMdlPM, evaluate_prediction, energy_accuracy, get_results
 from general.analysis_and_visualization import plot_results_with_theoretical_bound
 from differential_privacy import differential_privacy
 import os
 import numpy as np
-import scipy.io
 
 # Experiment Parameters
 EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]

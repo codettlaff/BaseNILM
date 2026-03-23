@@ -2,9 +2,23 @@
 # Reference: BaseNILM toolkit for energy disaggregation, Dr. Pascal A. Schirmer
 
 from src.general.features1D import features2D
+from numpy import savez_compressed
 import numpy as np
-from numpy import load
 from tqdm import tqdm
+
+def trainMdlPM(data_train, mdl_filepath, save_mdl=False, return_mdl=False):
+
+    N = data_train['X'].shape[0]
+    window_length = data_train['X'].shape[1]
+    numApp = data_train['Y'].shape[2]
+
+    mdl = np.zeros((N, window_length, numApp+1))
+
+    mdl[:, :, 0] = data_train['X']
+    mdl[:, :, 1:] = data_train['Y']
+
+    if save_mdl: savez_compressed(mdl_filepath, mdl)
+    if return_mdl: return mdl
 
 def dtw_distance(x,y):
 

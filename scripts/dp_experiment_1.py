@@ -32,6 +32,7 @@ def get_paths():
         "base": base,
         "data": os.path.join(base, "data"),
         "results": os.path.join(base, "results"),
+        "experiment_results": os.path.join(base, "results", EXPERIMENT_NAME),
         "mdl": os.path.join(base, "mdl"),
         "redd": os.path.join(base, "data", "redd")
     }
@@ -156,7 +157,7 @@ def plot_results_with_bound():
 
     # --- Find all result CSVs ---
     result_files = [
-        f for f in os.listdir(paths["results"])
+        f for f in os.listdir(paths["experiment_results"])
         if f.endswith("_results.csv")
     ]
     results_folderpath = os.path.join(paths["results"], EXPERIMENT_NAME)
@@ -166,7 +167,7 @@ def plot_results_with_bound():
 
         data_file_name = results_file.replace("_results.csv", "")
 
-        results_filepath = os.path.join(paths["results"], results_file)
+        results_filepath = os.path.join(paths["experiment_results"], results_file)
 
         # --- Load experiment results ---
         results_df = pd.read_csv(results_filepath)
@@ -215,5 +216,5 @@ def plot_results_with_bound():
 
 if __name__ == "__main__":
 
-    run_experiment()
+    # run_experiment()
     plot_results_with_bound()

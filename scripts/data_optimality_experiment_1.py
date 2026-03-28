@@ -42,13 +42,10 @@ def get_redd_files(redd_path):
         if f.endswith(".mat") and "HF" not in f
     ]
 
-def plot_rmse_with_theoretical_bound(df, y, save_path=None):
+def plot_rmse_with_theoretical_bound(df, y, X, save_path=None):
     """
     Plots RMSE vs epsilon for mean, energy, and peak
-    with theoretical bounds.
-
-    results_filepath: path to CSV produced by experiment
-    y: true aggregate signal (needed for T and B)
+    with corrected theoretical bounds (Laplace noise).
     """
 
     eps = df["epsilon"].values
@@ -64,20 +61,14 @@ def plot_rmse_with_theoretical_bound(df, y, save_path=None):
     # Problem parameters
     # -----------------------------
     T = len(y)
-    B = np.max(y)
+    B = np.max(X)
 
     # -----------------------------
-    # Theoretical bounds
+    # Correct theoretical bounds
     # -----------------------------
-    # From your derivations:
-    # Mean: sqrt(8B / (epsilon^2 T))
-    mean_theory = np.sqrt(8 * B / (eps**2 * T))
-
-    # Energy: sqrt(8B T / epsilon^2)
-    energy_theory = np.sqrt(8 * B * T / (eps**2))
-
-    # Peak: ~ sqrt(8B log(T)) / epsilon
-    peak_theory = np.sqrt(8 * B * np.log(T)) / eps
+    mean_theory = (np.sqrt(8) * B) / (eps * np.sqrt(T))
+    energy_theory = (np.sqrt(8 * T) * B) / eps
+    peak_theory = (2 * B / eps) * np.log(2 * T)
 
     # -----------------------------
     # Plot
@@ -225,6 +216,7 @@ def run_experiment():
         plot_rmse_with_theoretical_bound(
             results_df,
             y,
+            X,
             save_path=plot_filepath
         )
 

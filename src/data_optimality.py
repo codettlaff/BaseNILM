@@ -3,6 +3,9 @@ import numpy as np
 def calculate_rmse(estimate, true):
     return np.sqrt(np.mean((estimate - true)**2))
 
+def calculate_cvrmse(estimate, true):
+    return np.sqrt(np.mean((estimate - true)**2)) / true
+
 def empirical_mean_analysis(y, y_tilde):
     """
     y: shape (T,)
@@ -14,11 +17,13 @@ def empirical_mean_analysis(y, y_tilde):
 
     variance = np.var(noisy_means)
     rmse = calculate_rmse(noisy_means, true_mean)
+    cvrmse = (rmse / true_mean)
 
     return {
         "true_mean": true_mean,
         "variance": variance,
-        "rmse": rmse
+        "rmse": rmse,
+        "cvrmse": cvrmse
     }
 
 def empirical_energy_analysis(y, y_tilde):
@@ -33,11 +38,13 @@ def empirical_energy_analysis(y, y_tilde):
 
     variance = np.var(noisy_energy)
     rmse = np.sqrt(np.mean((noisy_energy - true_energy)**2))
+    cvrmse = (rmse / true_energy)
 
     return {
         "true_energy": true_energy,
         "variance": variance,
-        "rmse": rmse
+        "rmse": rmse,
+        "cvrmse": cvrmse
     }
 
 def empirical_peak_analysis(y, y_tilde):
@@ -53,10 +60,12 @@ def empirical_peak_analysis(y, y_tilde):
     bias = np.mean(noisy_peaks) - true_peak
     variance = np.var(noisy_peaks)
     rmse = np.sqrt(np.mean((noisy_peaks - true_peak)**2))
+    cvrmse = (rmse / true_peak)
 
     return {
         "true_peak": true_peak,
         "bias": bias,
         "variance": variance,
-        "rmse": rmse
+        "rmse": rmse,
+        "cvrmse": cvrmse
     }

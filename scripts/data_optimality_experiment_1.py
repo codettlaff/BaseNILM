@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from data.loadData import load_data, process_data
 from differential_privacy import differential_privacy
@@ -41,6 +42,91 @@ def get_redd_files(redd_path):
         if f.endswith(".mat") and "HF" not in f
     ]
 
+def plot_rmse_with_theoretical_bound(df, y, save_path=None):
+    """
+    Plots RMSE vs epsilon for mean, energy, and peak
+    with theoretical bounds.
+
+    results_filepath: path to CSV produced by experiment
+    y: true aggregate signal (needed for T and B)
+    """
+
+    eps = df["epsilon"].values
+
+    # -----------------------------
+    # Extract empirical RMSE
+    # -----------------------------
+    mean_rmse = df["mean_rmse"].values
+    energy_rmse = df["energy_rmse"].values
+    peak_rmse = df["peak_rmse"].values
+
+    # -----------------------------
+    # Problem parameters
+    # -----------------------------
+    T = len(y)
+    B = np.max(y)
+
+    # -----------------------------
+    # Theoretical bounds
+    # -----------------------------
+    # From your derivations:
+    # Mean: sqrt(8B / (epsilon^2 T))
+    mean_theory = np.sqrt(8 * B / (eps**2 * T))
+
+    # Energy: sqrt(8B T / epsilon^2)
+    energy_theory = np.sqrt(8 * B * T / (eps**2))
+
+    # Peak: ~ sqrt(8B log(T)) / epsilon
+    peak_theory = np.sqrt(8 * B * np.log(T)) / eps
+
+    # -----------------------------
+    # Plot
+    # -----------------------------
+    plt.figure(figsize=(12, 4))
+
+    # ---- Mean ----
+    plt.subplot(1, 3, 1)
+    plt.plot(eps, mean_rmse, 'o-', label="Empirical")
+    plt.plot(eps, mean_theory, '--', label="Theory")
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("Epsilon")
+    plt.ylabel("RMSE")
+    plt.title("Mean Load")
+    plt.legend()
+    plt.grid(True)
+
+    # ---- Energy ----
+    plt.subplot(1, 3, 2)
+    plt.plot(eps, energy_rmse, 'o-', label="Empirical")
+    plt.plot(eps, energy_theory, '--', label="Theory")
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("Epsilon")
+    plt.title("Daily Energy")
+    plt.legend()
+    plt.grid(True)
+
+    # ---- Peak ----
+    plt.subplot(1, 3, 3)
+    plt.plot(eps, peak_rmse, 'o-', label="Empirical")
+    plt.plot(eps, peak_theory, '--', label="Theory")
+    plt.xscale("log")
+    plt.yscale("log")
+    plt.xlabel("Epsilon")
+    plt.title("Peak Load")
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
+
+    # -----------------------------
+    # Save / show
+    # -----------------------------
+    if save_path is not None:
+        plt.savefig(save_path, dpi=300)
+
+    plt.show()
 
 # -----------------------------
 # Core Experiment
@@ -95,15 +181,21 @@ def run_experiment():
                 "epsilon": epsilon,
 
                 # Mean
+                "mean_true": mean_res["true_mean"],
                 "mean_rmse": mean_res["rmse"],
+                "mean_cvrmse": mean_res["cvrmse"],
                 "mean_var": mean_res["variance"],
 
                 # Energy
+                "energy_true": energy_res["true_energy"],
                 "energy_rmse": energy_res["rmse"],
+                "energy_cvrmse": energy_res["cvrmse"],
                 "energy_var": energy_res["variance"],
 
                 # Peak
+                "peak_true": peak_res["true_peak"],
                 "peak_rmse": peak_res["rmse"],
+                "peak_cvrmse": peak_res["cvrmse"],
                 "peak_var": peak_res["variance"],
                 "peak_bias": peak_res["bias"],
             })
@@ -122,6 +214,21 @@ def run_experiment():
 
         print(f"Saved: {results_filepath}")
 
+        # -----------------------------
+        # Plot results with theoretical bounds
+        # -----------------------------
+        plot_filepath = os.path.join(
+            results_folder,
+            f"{data_file_name}_rmse_plot.png"
+        )
+
+        plot_rmse_with_theoretical_bound(
+            results_df,
+            y,
+            save_path=plot_filepath
+        )
+
+        print(f"Plotted: {plot_filepath}")
 
 # -----------------------------
 # Entry Point

@@ -12,16 +12,26 @@ def plot_results_with_theoretical_bound(
     n_points=100,
     show_plot=False
 ):
-    import numpy as np
-    import matplotlib.pyplot as plt
 
-    # --- Compute theoretical bound ---
-    epsilon_bound = np.logspace(np.log10(epsilon_min), np.log10(epsilon_max), n_points)
+    # --- Compute theoretical bound epsilon range ---
+    epsilon_bound = np.logspace(
+        np.log10(epsilon_min),
+        np.log10(epsilon_max),
+        n_points
+    )
 
-    B_sum = np.sum(B)
-    C = (T * np.sqrt(8) * B_sum) / (2 * sum_y)
+    # --- FIX: Use global B consistent with DP mechanism ---
+    # B was previously per-appliance (vector). Convert to scalar:
+    B_global = np.max(B)
 
+    # Constant derived from formulation (matching implementation)
+    C = (T * np.sqrt(8) * B_global) / (2 * sum_y)
+
+    # Theoretical EACC bound
     eacc_bound = 1 - C / epsilon_bound
+
+    # Optional (recommended): enforce valid range
+    eacc_bound = np.clip(eacc_bound, 0, 1)
 
     # --- Compute experimental results ---
     grouped = results_df.groupby('epsilon').mean(numeric_only=True).reset_index()
@@ -59,10 +69,8 @@ def plot_results_with_theoretical_bound(
     # --- Save plot ---
     plt.savefig(filepath, bbox_inches='tight', dpi=300)
 
-    # Optional display
     if show_plot:
         plt.show()
 
-    # Close figure to free memory
     plt.close()
 

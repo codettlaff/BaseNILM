@@ -88,37 +88,73 @@ class RadialNetwork:
 
         return order
 
+def run_power_flow_example(aggregate_load_profile):
+    """
+    Runs radial power flow for each timestep.
 
-# -------------------------------
-# Example Usage
-# -------------------------------
-if __name__ == "__main__":
+    Parameters
+    ----------
+    aggregate_load_profile : 1D numpy array (T,)
+        Aggregate load over time
 
-    # Define nodes
+    Returns
+    -------
+    V_ts : numpy array (T, n_nodes)
+        Voltage time series
+
+    P_ts : numpy array (T, n_edges)
+        Branch power flow time series
+    """
+
+    # -------------------------------
+    # Network Definition
+    # -------------------------------
     nodes = [0, 1, 2, 3]
 
-    # Define edges: (parent, child, resistance r, reactance x)
     edges = [
         (0, 1, 0.01, 0.02),
         (1, 2, 0.01, 0.02),
         (1, 3, 0.01, 0.02),
     ]
 
-    # Power injections (loads are positive here)
-    p = {
-        1: 1.0,
-        2: 0.5,
-        3: 0.3
-    }
-
     net = RadialNetwork(nodes, edges, root=0)
 
-    V, P = net.compute_voltages(p, V0=1.0)
+    # Keep consistent ordering
+    node_order = sorted(nodes)
+    edge_order = [(i, j) for (i, j, _, _) in edges]
 
-    print("Branch Flows (P_ij):")
-    for k, v in P.items():
-        print(f"{k}: {v:.4f}")
+    T = len(aggregate_load_profile)
 
-    print("\nVoltages (V_i):")
-    for k, v in V.items():
-        print(f"{k}: {v:.4f}")
+    V_ts = []
+    P_ts = []
+
+    # -------------------------------
+    # Time Series Simulation
+    # -------------------------------
+    for t in range(T):
+
+        p_total = aggregate_load_profile[t]
+
+        # Distribute aggregate load across nodes
+        # (you can refine this later if needed)
+        p = {
+            0: 0.0,
+            1: 0.4 * p_total,
+            2: 0.35 * p_total,
+            3: 0.25 * p_total
+        }
+
+        V, P = net.compute_voltages(p, V0=1.0)
+
+        # Convert dicts → ordered arrays
+        V_vec = [V[n] for n in node_order]
+        P_vec = [P[e] for e in edge_order]
+
+        V_ts.append(V_vec)
+        P_ts.append(P_vec)
+
+    # Convert to numpy arrays
+    V_ts = np.array(V_ts)  # shape (T, n_nodes)
+    P_ts = np.array(P_ts)  # shape (T, n_edges)
+
+    return V_ts, P_ts

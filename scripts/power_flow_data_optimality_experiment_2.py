@@ -83,27 +83,14 @@ def run_experiment():
 
         data = process_data(load_data(redd_file), "redd")
 
-        p_apps = data['X']                # (T, N)
-        p_agg = np.sum(p_apps, axis=1)   # aggregate
+        p_apps = data['X']  # (T, N)
 
         B = np.max(p_apps)
 
         # ---------------------------
-        # Baseline Power Flow
+        # Baseline Power Flow (TRUE node-level)
         # ---------------------------
-        V_true, P_true = run_power_flow_example(p_agg)
-
-        # --- Network constants (match your feeder) ---
-        # edges: (0-1), (1-2), (1-3)
-        beta_01 = 2 * (0.01 + 0.02)
-        beta_12 = 2 * (0.01 + 0.02)
-        beta_13 = 2 * (0.01 + 0.02)
-
-        # For leaf node (worst case path)
-        beta_sum_sq = beta_01**2 + beta_12**2
-
-        # downstream size (worst branch)
-        D_size = 3
+        V_true, P_true = run_power_flow_example(p_apps)
 
         results = []
 
@@ -114,29 +101,18 @@ def run_experiment():
             # ---------------------------
             p_apps_private = differential_privacy_per_node(p_apps, epsilon)
 
-            # Re-aggregate
-            p_private = np.sum(p_apps_private, axis=1)
-
             # ---------------------------
-            # Power Flow
+            # Power Flow (NO aggregation!)
             # ---------------------------
-            V_noisy, P_noisy = run_power_flow_example(p_private)
+            V_noisy, P_noisy = run_power_flow_example(p_apps_private)
 
             v_error = rmse(V_true, V_noisy)
             p_error = rmse(P_true, P_noisy)
 
-            # ---------------------------
-            # Theoretical
-            # ---------------------------
-            v_theory = theoretical_voltage_rmse(epsilon, B, beta_sum_sq)
-            p_theory = theoretical_power_rmse(epsilon, B, D_size)
-
             results.append({
                 "epsilon": epsilon,
                 "voltage_rmse": v_error,
-                "powerflow_rmse": p_error,
-                "voltage_theory": v_theory,
-                "powerflow_theory": p_theory
+                "powerflow_rmse": p_error
             })
 
         df = pd.DataFrame(results)
@@ -154,11 +130,8 @@ def run_experiment():
         # ---------------------------
         plt.figure()
 
-        plt.plot(df["epsilon"], df["voltage_rmse"], marker='o', label="Voltage RMSE (empirical)")
-        plt.plot(df["epsilon"], df["powerflow_rmse"], marker='s', label="Branch Flow RMSE (empirical)")
-
-        plt.plot(df["epsilon"], df["voltage_theory"], linestyle='--', label="Voltage RMSE (theory)")
-        plt.plot(df["epsilon"], df["powerflow_theory"], linestyle='--', label="Branch Flow RMSE (theory)")
+        plt.plot(df["epsilon"], df["voltage_rmse"], marker='o', label="Voltage RMSE")
+        plt.plot(df["epsilon"], df["powerflow_rmse"], marker='s', label="Branch Flow RMSE")
 
         plt.xscale("log")
         plt.xlabel("Epsilon")

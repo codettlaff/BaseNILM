@@ -88,73 +88,58 @@ class RadialNetwork:
 
         return order
 
-def run_power_flow_example(aggregate_load_profile):
+def run_power_flow_example(p_apps):
     """
-    Runs radial power flow for each timestep.
+    Runs radial power flow with node-level loads.
 
     Parameters
     ----------
-    aggregate_load_profile : 1D numpy array (T,)
-        Aggregate load over time
+    p_apps : numpy array (T, N)
+        Load at each node over time
 
     Returns
     -------
-    V_ts : numpy array (T, n_nodes)
-        Voltage time series
-
-    P_ts : numpy array (T, n_edges)
-        Branch power flow time series
+    V_ts : (T, n_nodes)
+    P_ts : (T, n_edges)
     """
 
-    # -------------------------------
-    # Network Definition
-    # -------------------------------
-    nodes = [0, 1, 2, 3]
+    T, N = p_apps.shape
 
-    edges = [
-        (0, 1, 0.01, 0.02),
-        (1, 2, 0.01, 0.02),
-        (1, 3, 0.01, 0.02),
-    ]
+    # -------------------------------
+    # Build network dynamically
+    # -------------------------------
+    # Node 0 = slack, nodes 1..N = loads
+    nodes = list(range(N + 1))
+
+    edges = []
+    for i in range(N):
+        edges.append((i, i + 1, 0.01, 0.02))  # simple chain
 
     net = RadialNetwork(nodes, edges, root=0)
 
-    # Keep consistent ordering
-    node_order = sorted(nodes)
-    edge_order = [(i, j) for (i, j, _, _) in edges]
-
-    T = len(aggregate_load_profile)
+    node_order = nodes
+    edge_order = [(i, i + 1) for i in range(N)]
 
     V_ts = []
     P_ts = []
 
     # -------------------------------
-    # Time Series Simulation
+    # Time loop
     # -------------------------------
     for t in range(T):
 
-        p_total = aggregate_load_profile[t]
+        # Build node injection dictionary
+        p = {0: 0.0}  # slack node
 
-        # Distribute aggregate load across nodes
-        # (you can refine this later if needed)
-        p = {
-            0: 0.0,
-            1: 0.4 * p_total,
-            2: 0.35 * p_total,
-            3: 0.25 * p_total
-        }
+        for i in range(N):
+            p[i + 1] = p_apps[t, i]
 
         V, P = net.compute_voltages(p, V0=1.0)
 
-        # Convert dicts → ordered arrays
         V_vec = [V[n] for n in node_order]
         P_vec = [P[e] for e in edge_order]
 
         V_ts.append(V_vec)
         P_ts.append(P_vec)
 
-    # Convert to numpy arrays
-    V_ts = np.array(V_ts)  # shape (T, n_nodes)
-    P_ts = np.array(P_ts)  # shape (T, n_edges)
-
-    return V_ts, P_ts
+    return np.array(V_ts), np.array(P_ts)

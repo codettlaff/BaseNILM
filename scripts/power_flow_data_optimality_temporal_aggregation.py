@@ -5,7 +5,6 @@ import matplotlib.pyplot as plt
 
 from data.loadData import load_data, process_data
 from power_flow import run_power_flow_example
-from differential_privacy import differential_privacy
 
 # -------------------------------
 # Experiment Parameters
@@ -18,18 +17,15 @@ AGG_FACTORS = [1, 5, 20, 100, 300]
 
 EXPERIMENT_NAME = "power_flow_data_optimality_temporal_aggregation_experiment_1"
 
+# -------------------------------
+# Node-level DP
+# -------------------------------
 def differential_privacy_per_node(p_apps, epsilon):
-    """
-    Apply independent Laplace noise to each appliance (node).
-
-    p_apps : (T, N)
-    """
     B = np.max(p_apps)
     delta_f = 2 * B
     scale = delta_f / epsilon
 
     noise = np.random.laplace(loc=0, scale=scale, size=p_apps.shape)
-
     return p_apps + noise
 
 # -------------------------------
@@ -61,20 +57,22 @@ def rmse(a, b):
 
 def temporal_aggregate(data, agg_factor):
     data = np.asarray(data)
-
     n = len(data) // agg_factor * agg_factor
     data = data[:n]
-
     return data.reshape(-1, agg_factor).mean(axis=1)
 
 def temporal_aggregate_matrix(X, agg_factor):
-    """
-    Apply temporal aggregation column-wise to (T, N) data
-    """
     return np.stack(
         [temporal_aggregate(X[:, i], agg_factor) for i in range(X.shape[1])],
         axis=1
     )
+
+def format_resolution(agg_factor):
+    seconds = agg_factor * 3
+    if seconds < 60:
+        return f"{seconds}s"
+    else:
+        return f"{seconds // 60}min"
 
 # -------------------------------
 # Main Experiment
@@ -91,7 +89,6 @@ def run_experiment():
         print(f"\nProcessing: {redd_file}")
 
         data = process_data(load_data(redd_file), "redd")
-
         p_apps_full = data['X']  # (T, N)
 
         results = []
@@ -101,31 +98,26 @@ def run_experiment():
             print(f"  Aggregation factor: {agg_factor}")
 
             # ---------------------------
-            # Temporal aggregation
+            # Temporal aggregation (per node)
             # ---------------------------
             p_apps = temporal_aggregate_matrix(p_apps_full, agg_factor)
-            p_agg = np.sum(p_apps, axis=1)
 
             # ---------------------------
-            # Baseline power flow
+            # Baseline power flow (NODE-LEVEL)
             # ---------------------------
-            V_true, I_true = run_power_flow_example(p_agg)
+            V_true, I_true = run_power_flow_example(p_apps)
 
             for epsilon in EPSILON_VALUES:
 
                 # ---------------------------
-                # Apply DP (aggregate-level)
+                # DP per node
                 # ---------------------------
-                # Apply DP per node
                 p_apps_private = differential_privacy_per_node(p_apps, epsilon)
 
-                # Re-aggregate
-                p_private = np.sum(p_apps_private, axis=1)
-
                 # ---------------------------
-                # Power flow with noise
+                # Power flow with noisy node loads
                 # ---------------------------
-                V_noisy, I_noisy = run_power_flow_example(p_private)
+                V_noisy, I_noisy = run_power_flow_example(p_apps_private)
 
                 v_error = rmse(V_true, V_noisy)
                 i_error = rmse(I_true, I_noisy)
@@ -153,8 +145,7 @@ def run_experiment():
 
         for agg_factor in AGG_FACTORS:
             subset = df[df["aggregation_factor"] == agg_factor]
-
-            label = f"{agg_factor * 3}s resolution"
+            label = format_resolution(agg_factor)
 
             plt.plot(
                 subset["epsilon"],
@@ -170,8 +161,7 @@ def run_experiment():
         plt.legend()
         plt.grid(True)
 
-        plot_path = os.path.join(paths["experiment"], f"{name}_voltage_plot.png")
-        plt.savefig(plot_path)
+        plt.savefig(os.path.join(paths["experiment"], f"{name}_voltage_plot.png"))
         plt.close()
 
         # ---------------------------
@@ -181,8 +171,7 @@ def run_experiment():
 
         for agg_factor in AGG_FACTORS:
             subset = df[df["aggregation_factor"] == agg_factor]
-
-            label = f"{agg_factor * 3}s resolution"
+            label = format_resolution(agg_factor)
 
             plt.plot(
                 subset["epsilon"],
@@ -198,8 +187,7 @@ def run_experiment():
         plt.legend()
         plt.grid(True)
 
-        plot_path = os.path.join(paths["experiment"], f"{name}_current_plot.png")
-        plt.savefig(plot_path)
+        plt.savefig(os.path.join(paths["experiment"], f"{name}_current_plot.png"))
         plt.close()
 
         print(f"Saved results for: {name}")

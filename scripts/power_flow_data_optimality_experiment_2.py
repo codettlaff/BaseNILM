@@ -60,11 +60,11 @@ def differential_privacy_per_node(p_apps, epsilon):
 # -------------------------------
 # Theoretical Bounds (NOW MATCHING THEORY)
 # -------------------------------
-def theoretical_power_rmse(epsilon, B, D_size):
-    return (np.sqrt(8) / epsilon) * np.sqrt(D_size * B**2)
+def theoretical_power_rmse(epsilon, B, D_size, N):
+    return (np.sqrt(8) / epsilon) * B * np.sqrt(D_size * N)
 
-def theoretical_voltage_rmse(epsilon, B, beta_sum_sq):
-    return (np.sqrt(8) / epsilon) * np.sqrt(beta_sum_sq * B**2)
+def theoretical_voltage_rmse(epsilon, B, beta_sum_sq, N):
+    return (np.sqrt(8) / epsilon) * B * np.sqrt(beta_sum_sq * N)
 
 # -------------------------------
 # Main Experiment
@@ -84,6 +84,7 @@ def run_experiment():
         data = process_data(load_data(redd_file), "redd")
 
         p_apps = data['X']  # (T, N)
+        N = p_apps.shape[1]
 
         B = np.max(p_apps)
 
@@ -91,6 +92,17 @@ def run_experiment():
         # Baseline Power Flow (TRUE node-level)
         # ---------------------------
         V_true, P_true = run_power_flow_example(p_apps)
+
+        # ---------------------------
+        # Network constants (approximate)
+        # ---------------------------
+        beta_01 = 2 * (0.01 + 0.02)
+        beta_12 = 2 * (0.01 + 0.02)
+
+        beta_sum_sq = beta_01**2 + beta_12**2
+
+        # worst-case downstream size (chain feeder)
+        D_size = N
 
         results = []
 
@@ -102,17 +114,25 @@ def run_experiment():
             p_apps_private = differential_privacy_per_node(p_apps, epsilon)
 
             # ---------------------------
-            # Power Flow (NO aggregation!)
+            # Power Flow
             # ---------------------------
             V_noisy, P_noisy = run_power_flow_example(p_apps_private)
 
             v_error = rmse(V_true, V_noisy)
             p_error = rmse(P_true, P_noisy)
 
+            # ---------------------------
+            # Theoretical bounds (UPDATED)
+            # ---------------------------
+            v_theory = (np.sqrt(8) / epsilon) * B * np.sqrt(N)
+            p_theory = (np.sqrt(8) / epsilon) * B * np.sqrt(N)
+
             results.append({
                 "epsilon": epsilon,
                 "voltage_rmse": v_error,
-                "powerflow_rmse": p_error
+                "powerflow_rmse": p_error,
+                "voltage_theory": v_theory,
+                "powerflow_theory": p_theory
             })
 
         df = pd.DataFrame(results)
@@ -130,8 +150,11 @@ def run_experiment():
         # ---------------------------
         plt.figure()
 
-        plt.plot(df["epsilon"], df["voltage_rmse"], marker='o', label="Voltage RMSE")
-        plt.plot(df["epsilon"], df["powerflow_rmse"], marker='s', label="Branch Flow RMSE")
+        plt.plot(df["epsilon"], df["voltage_rmse"], marker='o', label="Voltage RMSE (empirical)")
+        plt.plot(df["epsilon"], df["powerflow_rmse"], marker='s', label="Branch Flow RMSE (empirical)")
+
+        plt.plot(df["epsilon"], df["voltage_theory"], linestyle='--', label="Voltage RMSE (theory)")
+        plt.plot(df["epsilon"], df["powerflow_theory"], linestyle='--', label="Branch Flow RMSE (theory)")
 
         plt.xscale("log")
         plt.xlabel("Epsilon")

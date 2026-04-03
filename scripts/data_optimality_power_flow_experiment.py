@@ -88,33 +88,57 @@ def build_p_dict(p_nodes, t):
 # ============================================================
 # ACCURACY METRICS (EMPIRICAL)
 # ============================================================
-def compute_accuracy_metrics(V_true, V_noisy, I_true, I_noisy):
+# ============================================================
+# ACCURACY METRICS (EMPIRICAL, TIME-AGGREGATED)
+# ============================================================
+def compute_accuracy_metrics(V_true_time, V_noisy_time, I_true_time, I_noisy_time):
     """
-    Computes variance-based accuracy metrics:
-        Acc_V^(var) = 1 - sum e_v^2 / (2 sum V^2)
-        Acc_I^(var) = 1 - sum e_l^2 / (2 sum I^2)
+    Computes variance-based accuracy metrics over all time steps:
+
+        Acc_V^(var) = 1 - (sum_{t,i} e_{v,i,t}^2) / (2 sum_{t,i} V_{i,t}^2)
+        Acc_I^(var) = 1 - (sum_{t,ℓ} e_{ℓ,t}^2) / (2 sum_{t,ℓ} I_{ℓ,t}^2)
+
+    Parameters
+    ----------
+    V_true_time, V_noisy_time : list of dicts
+        Each element is V_{·,t}, indexed by node i
+    I_true_time, I_noisy_time : list of dicts
+        Each element is I_{·,t}, indexed by edge ℓ
+
+    Returns
+    -------
+    acc_v, acc_l : floats
+        Voltage and current accuracy
     """
 
-    # --- Voltage ---
     num_v = 0.0
     den_v = 0.0
-
-    for i in V_true:
-        e_v = V_noisy[i] - V_true[i]
-        num_v += e_v**2
-        den_v += V_true[i]**2
-
-    acc_v = 1 - num_v / (2 * den_v)
-
-    # --- Line current ---
     num_l = 0.0
     den_l = 0.0
 
-    for edge in I_true:
-        e_l = I_noisy[edge] - I_true[edge]
-        num_l += e_l**2
-        den_l += I_true[edge]**2
+    T = len(V_true_time)
 
+    for t in range(T):
+
+        V_true = V_true_time[t]
+        V_noisy = V_noisy_time[t]
+
+        I_true = I_true_time[t]
+        I_noisy = I_noisy_time[t]
+
+        # --- Voltage ---
+        for i in V_true:
+            e_v = V_noisy[i] - V_true[i]
+            num_v += e_v**2
+            den_v += V_true[i]**2
+
+        # --- Line current ---
+        for edge in I_true:
+            e_l = I_noisy[edge] - I_true[edge]
+            num_l += e_l**2
+            den_l += I_true[edge]**2
+
+    acc_v = 1 - num_v / (2 * den_v)
     acc_l = 1 - num_l / (2 * den_l)
 
     return acc_v, acc_l
@@ -405,5 +429,5 @@ def plot_results(show=False):
 
 if __name__ == "__main__":
 
-    # run_experiment()
+    run_experiment()
     plot_results(show=True)

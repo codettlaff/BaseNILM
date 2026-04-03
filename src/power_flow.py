@@ -74,7 +74,7 @@ class RadialNetwork:
     #   V_i  = |V_i|^2  (squared voltage magnitude)
     #   I_ij = |I_ij|   (current magnitude)
     # ------------------------------------------------------------------
-    def compute_voltage_and_current(self, P_i, V0=1.0):
+    def compute_voltage_and_current(self, P_i):
         """
         P_i : nodal real power
         V0  : squared voltage at root (|V_0|^2)
@@ -87,7 +87,7 @@ class RadialNetwork:
         P_ij = self.compute_branch_flows(P_i)
 
         # Step 2: compute squared voltages
-        V_i = {self.root: V0}
+        V_i = {self.root: self.V0}
 
         for j in self.topological_order():
             if j == self.root:

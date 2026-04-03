@@ -14,6 +14,7 @@ from power_flow import RadialNetwork
 EXPERIMENT_NAME = "data_optimality_power_flow"
 EPSILON_VALUES = [50, 75, 100, 150, 200, 300, 500, 1000]
 N_NODES = 6
+V0 = 12.47e3
 ROOT = 0
 
 # -----------------------------
@@ -40,7 +41,7 @@ def get_redd_files(redd_path):
 # ============================================================
 # NETWORK CONSTRUCTION
 # ============================================================
-def build_radial_network(n_nodes):
+def build_radial_network(n_nodes, V0):
     nodes = list(range(n_nodes))
     edges = []
 
@@ -49,7 +50,7 @@ def build_radial_network(n_nodes):
         x = 0.01
         edges.append((i, i + 1, r, x))
 
-    return RadialNetwork(nodes, edges, root=ROOT)
+    return RadialNetwork(nodes, edges, root=ROOT, V0=V0)
 
 
 # ============================================================
@@ -189,7 +190,7 @@ def run_experiment(p_agg, p_apps):
     T = p_agg.shape[0]
 
     # --- Network ---
-    network = build_radial_network(N_NODES)
+    network = build_radial_network(N_NODES, V0)
 
     # --- Assign loads ---
     p_nodes = {i: p_agg.copy() for i in network.nodes}

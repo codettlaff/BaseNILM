@@ -74,19 +74,33 @@ class RadialNetwork:
     #   V_i  = |V_i|^2  (squared voltage magnitude)
     #   I_ij = |I_ij|   (current magnitude)
     # ------------------------------------------------------------------
-    def compute_voltage_and_current(self, P_i):
+    def solve_power_flow(self, P_i):
         """
-        P_i : nodal real power
-        V0  : squared voltage at root (|V_0|^2)
+        Solve LinDistFlow power flow.
 
-        Returns:
-            V_i  : dict {i: |V_i|^2}
-            I_ij : dict {(i,j): |I_ij|}
+        Parameters
+        ----------
+        P_i : dict
+            Nodal real power injections P_i
+
+        Returns
+        -------
+        V_i : dict
+            Squared voltages {i: |V_i|^2}
+        P_ij : dict
+            Branch real power flows {(i,j): P_{ij}}
+        I_ij : dict
+            Branch current magnitudes {(i,j): |I_{ij}|}
         """
-        # Step 1: compute branch flows
+
+        # --------------------------------------------------
+        # Step 1: compute branch flows P_{ij}
+        # --------------------------------------------------
         P_ij = self.compute_branch_flows(P_i)
 
-        # Step 2: compute squared voltages
+        # --------------------------------------------------
+        # Step 2: compute squared voltages V_i = |V_i|^2
+        # --------------------------------------------------
         V_i = {self.root: self.V0}
 
         for j in self.topological_order():
@@ -96,21 +110,23 @@ class RadialNetwork:
             i = self.parent[j]
             beta_ij = self.beta(i, j)
 
-            # LinDistFlow voltage equation (already squared form)
+            # LinDistFlow voltage equation
             V_i[j] = V_i[i] - beta_ij * P_ij[(i, j)]
 
-        # Step 3: compute current magnitudes
+        # --------------------------------------------------
+        # Step 3: compute current magnitudes I_{ij}
+        # --------------------------------------------------
         I_ij = {}
 
         for (i, j), P in P_ij.items():
-            # I_ij ≈ P_ij / sqrt(V_i)
-            # guard against numerical issues
+
             if V_i[i] <= 0:
                 raise ValueError(f"Non-physical voltage at node {i}: {V_i[i]}")
 
+            # |I_{ij}| ≈ P_{ij} / sqrt(V_i)
             I_ij[(i, j)] = P / np.sqrt(V_i[i])
 
-        return V_i, I_ij
+        return V_i, P_ij, I_ij
 
     # ------------------------------------------------------------------
     # Tree traversal

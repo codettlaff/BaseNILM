@@ -2,6 +2,7 @@ import os
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
+import matplotlib.pyplot as plt
 
 from data.loadData import load_data, process_data
 from differential_privacy import differential_privacy
@@ -193,7 +194,6 @@ def run_experiment():
         os.makedirs(results_folder)
 
     redd_files = get_redd_files(paths["redd"])
-    data_file_name = os.path.basename(redd_files[0]).replace(".mat", "")
     data = process_data(load_data(redd_files[0]), "redd")
 
     p_agg = data['Y']  # aggregate load
@@ -271,9 +271,67 @@ def run_experiment():
             "Acc_l_theory": acc_l_th
         })
 
-    return pd.DataFrame(results)
+    results_filepath = os.path.join(results_folder, "results.csv")
+    pd.DataFrame(results).to_csv(results_filepath)
 
+def plot_results():
+    """
+    Reads results CSV and plots:
+
+        1) Acc_V vs epsilon
+        2) Acc_l vs epsilon
+
+    Each plot includes:
+        - Empirical curve
+        - Theoretical curve
+    """
+
+    paths = get_paths()
+    results_folder = paths["experiment_results"]
+    results_filepath = os.path.join(results_folder, 'results.csv')
+
+    # ---------------------------
+    # Load results
+    # ---------------------------
+    df = pd.read_csv(results_filepath)
+
+    epsilon = df["epsilon"]
+
+    # ---------------------------
+    # Plot: Voltage Accuracy
+    # ---------------------------
+    plt.figure()
+
+    plt.plot(epsilon, df["Acc_V_emp"], marker='o', label="Empirical")
+    plt.plot(epsilon, df["Acc_V_theory"], linestyle='--', label="Theoretical")
+
+    plt.xlabel(r"Privacy Budget $\epsilon$")
+    plt.ylabel(r"$\mathrm{Acc}_V$")
+    plt.title(r"Voltage Accuracy vs $\epsilon$")
+    plt.legend()
+    plt.grid()
+
+    plt.tight_layout()
+    plt.show()
+
+    # ---------------------------
+    # Plot: Line Accuracy
+    # ---------------------------
+    plt.figure()
+
+    plt.plot(epsilon, df["Acc_l_emp"], marker='o', label="Empirical")
+    plt.plot(epsilon, df["Acc_l_theory"], linestyle='--', label="Theoretical")
+
+    plt.xlabel(r"Privacy Budget $\epsilon$")
+    plt.ylabel(r"$\mathrm{Acc}_\ell$")
+    plt.title(r"Line Current Accuracy vs $\epsilon$")
+    plt.legend()
+    plt.grid()
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
 
-    results = run_experiment()
+    run_experiment()
+    plot_results()

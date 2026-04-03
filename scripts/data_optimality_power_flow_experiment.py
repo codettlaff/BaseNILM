@@ -90,9 +90,9 @@ def build_p_dict(p_nodes, t):
 # ============================================================
 def compute_accuracy_metrics(V_true, V_noisy, I_true, I_noisy):
     """
-    Computes:
-        Acc_V = 1 - sum |e_v| / (2 sum |V|)
-        Acc_l = 1 - sum |e_l| / (2 sum |I|)
+    Computes variance-based accuracy metrics:
+        Acc_V^(var) = 1 - sum e_v^2 / (2 sum V^2)
+        Acc_I^(var) = 1 - sum e_l^2 / (2 sum I^2)
     """
 
     # --- Voltage ---
@@ -101,8 +101,8 @@ def compute_accuracy_metrics(V_true, V_noisy, I_true, I_noisy):
 
     for i in V_true:
         e_v = V_noisy[i] - V_true[i]
-        num_v += abs(e_v)
-        den_v += abs(V_true[i])
+        num_v += e_v**2
+        den_v += V_true[i]**2
 
     acc_v = 1 - num_v / (2 * den_v)
 
@@ -112,8 +112,8 @@ def compute_accuracy_metrics(V_true, V_noisy, I_true, I_noisy):
 
     for edge in I_true:
         e_l = I_noisy[edge] - I_true[edge]
-        num_l += abs(e_l)
-        den_l += abs(I_true[edge])
+        num_l += e_l**2
+        den_l += I_true[edge]**2
 
     acc_l = 1 - num_l / (2 * den_l)
 

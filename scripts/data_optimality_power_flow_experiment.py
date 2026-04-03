@@ -145,7 +145,7 @@ def compute_acc_theory(network, V_true_time, I_true_time, B_t, epsilon):
         # ---------------------------
         # Voltage term
         # ---------------------------
-        for i in V_t:
+        for i in tqdm(V_t, desc="Computing theoretical accuracy"):
 
             # Path from root to node i
             path_edges = []
@@ -216,7 +216,7 @@ def run_experiment(p_agg, p_apps):
         # ---------------------------
         # TIME LOOP
         # ---------------------------
-        for t in tqdm(range(T), desc=f"Epsilon Value {epsilon}: Timestep Loop"):
+        for t in tqdm(range(T), desc=f"Computing Empirical Accuracy"):
 
             # True + noisy loads
             p_true = build_p_dict(p_nodes, t)

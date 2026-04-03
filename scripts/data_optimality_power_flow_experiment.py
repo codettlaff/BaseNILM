@@ -289,10 +289,12 @@ def run_experiment():
         den_l = 0.0
 
         # Store full trajectories
-        V_true_time = []
-        I_true_time = []
-        V_noisy_time = []
-        I_noisy_time = []
+        V_i_true_time = []
+        I_ij_true_time = []
+        P_ij_true_time = []
+        V_i_noisy_time = []
+        P_ij_noisy_time = []
+        I_ij_noisy_time = []
 
         # ---------------------------
         # TIME LOOP
@@ -304,29 +306,31 @@ def run_experiment():
             p_tilde = build_p_dict(p_nodes_tilde, t)
 
             # Power flow
-            V_true, I_true = network.compute_voltage_and_current(p_true)
-            V_noisy, I_noisy = network.compute_voltage_and_current(p_tilde)
+            V_i_true, P_ij_true, I_ij_true = network.solve_power_flow(p_true)
+            V_i_noisy, P_ij_noisy, I_ij_noisy = network.solve_power_flow(p_tilde)
 
-            V_true_time.append(V_true)
-            I_true_time.append(I_true)
-            V_noisy_time.append(V_noisy)
-            I_noisy_time.append(I_noisy)
+            V_i_true_time.append(V_i_true)
+            P_ij_true_time.append(P_ij_true)
+            I_ij_true_time.append(I_ij_true)
+            V_i_noisy_time.append(V_i_noisy)
+            P_ij_noisy_time.append(P_ij_noisy)
+            I_ij_noisy_time.append(I_ij_noisy)
 
         # --- Empirical accuracy (variance-based) ---
-        acc_v_emp, acc_i_emp = compute_accuracy_metrics(V_true_time, V_noisy_time, I_true_time, I_noisy_time)
+        acc_v_emp, acc_i_emp = compute_accuracy_metrics(V_i_true_time, V_i_noisy_time, I_ij_true_time, I_ij_noisy_time)
 
         # --- Theoretical accuracy ---
         acc_v_th = compute_v_acc_theory(
-            np.array([list(V.values()) for V in V_true_time]),
+            np.array([list(V.values()) for V in V_i_true_time]),
             network.D,
             B_t,
             epsilon
         )
 
         acc_i_th = compute_i_acc_theory(
-            np.array([list(I.values()) for I in I_true_time]),
-            V_true_time,
-            p_nodes,
+            np.array([list(I.values()) for I in I_ij_true_time]),
+            V_i_true_time,
+            P_ij_true_time,
             network.D,
             network.C,
             network.beta,

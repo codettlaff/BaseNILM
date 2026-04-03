@@ -185,7 +185,19 @@ def compute_acc_theory(network, V_true_time, I_true_time, B_t, epsilon):
 # ============================================================
 # MAIN EXPERIMENT
 # ============================================================
-def run_experiment(p_agg, p_apps):
+def run_experiment():
+
+    paths = get_paths()
+    results_folder = paths["experiment_results"]
+    if not os.path.exists(results_folder):
+        os.makedirs(results_folder)
+
+    redd_files = get_redd_files(paths["redd"])
+    data_file_name = os.path.basename(redd_files[0]).replace(".mat", "")
+    data = process_data(load_data(redd_files[0]), "redd")
+
+    p_agg = data['Y']  # aggregate load
+    p_apps = data['X']  # needed for DP mechanism
 
     T = p_agg.shape[0]
 
@@ -264,16 +276,4 @@ def run_experiment(p_agg, p_apps):
 
 if __name__ == "__main__":
 
-    paths = get_paths()
-    results_folder = paths["experiment_results"]
-    if not os.path.exists(results_folder):
-        os.makedirs(results_folder)
-
-    redd_files = get_redd_files(paths["redd"])
-    data_file_name = os.path.basename(redd_files[0]).replace(".mat", "")
-    data = process_data(load_data(redd_files[0]), "redd")
-
-    p_agg = data['Y']  # aggregate load
-    p_apps = data['X']  # needed for DP mechanism
-
-    results = run_experiment(p_agg, p_apps)
+    results = run_experiment()

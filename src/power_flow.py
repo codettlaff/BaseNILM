@@ -2,15 +2,17 @@ import numpy as np
 
 
 class RadialNetwork:
-    def __init__(self, nodes, edges, root=0, alpha=1.0):
+    def __init__(self, nodes, edges, root=0, V0=1.0, alpha=1.0):
         """
         nodes : list of node indices
         edges : list of (i, j, r_ij, x_ij)
         root  : root node
+        V0    : root node voltage
         alpha : constant power factor parameter (Q_i = alpha P_i)
         """
         self.nodes = nodes
         self.root = root
+        self.V0 = V0
         self.alpha = alpha
 
         # Tree structure

@@ -350,5 +350,5 @@ def plot_results(show=False):
 
 if __name__ == "__main__":
 
-    run_experiment()
-    plot_results()
+    # run_experiment()
+    plot_results(show=True)

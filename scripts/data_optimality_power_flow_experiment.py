@@ -178,7 +178,7 @@ def compute_v_acc_theory(V, D, B, epsilon):
     # Numerator: sum_{i=1}^N sum_{h in D(i)} B_h^2
     num_inner = 0.0
     for i in range(N):
-        for h in D[i]:
+        for h in D(i):
             num_inner += B[h]**2
 
     # Full expression: (4T / ε^2) * (num_inner / denom)
@@ -238,7 +238,7 @@ def compute_i_acc_theory(I, V, P, D, C, beta, B, epsilon, edges):
         factor = (1 / V[j]) + (P[ell] / (V[j]**2)) * beta_sum
 
         # Sum over h ∈ D(i)
-        for h in D[i]:
+        for h in D(i):
             num_inner += B[h]**2 * (factor**2)
 
     # Full expression
@@ -313,7 +313,7 @@ def run_experiment():
             I_noisy_time.append(I_noisy)
 
         # --- Empirical accuracy (variance-based) ---
-        acc_v_emp, acc_i_emp = compute_i_acc_theory(V_true_time, V_noisy_time, I_true_time, I_noisy_time)
+        acc_v_emp, acc_i_emp = compute_accuracy_metrics(V_true_time, V_noisy_time, I_true_time, I_noisy_time)
 
         # --- Theoretical accuracy ---
         acc_v_th = compute_v_acc_theory(
@@ -325,8 +325,8 @@ def run_experiment():
 
         acc_i_th = compute_i_acc_theory(
             np.array([list(I.values()) for I in I_true_time]),
-            network.V,
-            network.P,
+            V_true_time,
+            p_nodes,
             network.D,
             network.C,
             network.beta,

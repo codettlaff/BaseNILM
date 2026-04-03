@@ -247,7 +247,7 @@ def run_experiment():
     p_nodes = {i: p_agg.copy() for i in network.nodes}
 
     # --- Sensitivity ---
-    B_t = compute_B_t(p_apps)
+    B_t = compute_B_t(p_apps)   # B_h
 
     results = []
 
@@ -258,16 +258,20 @@ def run_experiment():
         # Apply DP
         p_nodes_tilde = apply_dp_per_node(p_nodes, p_apps, epsilon)
 
-        acc_v_list = []
-        acc_l_list = []
+        # --- Accumulators for variance-based empirical metric ---
+        num_v = 0.0
+        den_v = 0.0
+        num_l = 0.0
+        den_l = 0.0
 
+        # Store full trajectories for theory
         V_true_time = []
         I_true_time = []
 
         # ---------------------------
         # TIME LOOP
         # ---------------------------
-        for t in tqdm(range(T), desc=f"Computing Empirical Accuracy"):
+        for t in tqdm(range(T), desc="Computing Empirical Accuracy"):
 
             # True + noisy loads
             p_true = build_p_dict(p_nodes, t)
@@ -277,29 +281,42 @@ def run_experiment():
             V_true, I_true = network.compute_voltage_and_current(p_true)
             V_noisy, I_noisy = network.compute_voltage_and_current(p_tilde)
 
-            # Store for theory
             V_true_time.append(V_true)
             I_true_time.append(I_true)
 
-            # Empirical accuracy
-            acc_v, acc_l = compute_accuracy_metrics(
-                V_true, V_noisy, I_true, I_noisy
-            )
+            # --- Accumulate squared error (matches variance) ---
+            for i in V_true:
+                e_v = V_noisy[i] - V_true[i]
+                num_v += e_v**2
+                den_v += V_true[i]**2
 
-            acc_v_list.append(acc_v)
-            acc_l_list.append(acc_l)
+            for edge in I_true:
+                e_l = I_noisy[edge] - I_true[edge]
+                num_l += e_l**2
+                den_l += I_true[edge]**2
 
-        # --- Empirical averages ---
-        acc_v_emp = np.mean(acc_v_list)
-        acc_l_emp = np.mean(acc_l_list)
+        # --- Empirical accuracy (variance-based) ---
+        acc_v_emp = 1 - num_v / (2 * den_v)
+        acc_l_emp = 1 - num_l / (2 * den_l)
 
-        # --- Theoretical ---
-        acc_v_th, acc_l_th = compute_acc_theory(
-            network,
-            V_true_time,
-            I_true_time,
+        # --- Theoretical accuracy ---
+        acc_v_th = compute_v_acc_theory(
+            np.array([list(V.values()) for V in V_true_time]),
+            network.D,
             B_t,
             epsilon
+        )
+
+        acc_l_th = compute_i_acc_theory(
+            np.array([list(I.values()) for I in I_true_time]),
+            network.V,
+            network.P,
+            network.D,
+            network.C,
+            network.beta,
+            B_t,
+            epsilon,
+            network.edges
         )
 
         results.append({
@@ -311,7 +328,7 @@ def run_experiment():
         })
 
     results_filepath = os.path.join(results_folder, "results.csv")
-    pd.DataFrame(results).to_csv(results_filepath)
+    pd.DataFrame(results).to_csv(results_filepath, index=False)
 
 def plot_results(show=False):
     """

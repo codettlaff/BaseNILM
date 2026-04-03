@@ -4,10 +4,10 @@ import numpy as np
 class RadialNetwork:
     def __init__(self, nodes, edges, root=0, alpha=1.0):
         """
-        nodes : list of node indices i ∈ {0,...,N}
+        nodes : list of node indices
         edges : list of (i, j, r_ij, x_ij)
-        root  : root node (substation)
-        alpha : constant power factor parameter (Q_i = alpha * P_i)
+        root  : root node
+        alpha : constant power factor parameter (Q_i = alpha P_i)
         """
         self.nodes = nodes
         self.root = root
@@ -28,10 +28,9 @@ class RadialNetwork:
             self.x[(i, j)] = x_ij
 
     # ------------------------------------------------------------------
-    # D(i): downstream nodes (including i)
+    # D(i): downstream nodes
     # ------------------------------------------------------------------
     def D(self, i):
-        """Return D(i): all nodes downstream of i (including i)"""
         stack = [i]
         downstream = []
 
@@ -43,21 +42,12 @@ class RadialNetwork:
         return downstream
 
     # ------------------------------------------------------------------
-    # Branch Flow:  P_ij = sum_{h ∈ D(j)} P_h
+    # Branch flow: P_ij = sum_{h ∈ D(j)} P_h
     # ------------------------------------------------------------------
     def compute_branch_flows(self, P_i):
-        """
-        P_i : dict {i: real power injection at node i}
-
-        Returns:
-            P_ij : dict {(i,j): branch flow}
-        """
         P_ij = {}
 
-        # Initialize subtree sums with nodal injections
         subtree_sum = {i: P_i.get(i, 0.0) for i in self.nodes}
-
-        # Process nodes bottom-up
         order = self.topological_order()[::-1]
 
         for j in order:
@@ -65,11 +55,7 @@ class RadialNetwork:
                 continue
 
             i = self.parent[j]
-
-            # accumulate downstream load
             subtree_sum[i] += subtree_sum[j]
-
-            # branch flow definition
             P_ij[(i, j)] = subtree_sum[j]
 
         return P_ij
@@ -81,19 +67,24 @@ class RadialNetwork:
         return 2 * (self.r[(i, j)] + self.alpha * self.x[(i, j)])
 
     # ------------------------------------------------------------------
-    # Voltage: V_j = V_i - β_ij P_ij
+    # Main function:
+    # Returns:
+    #   V_i  = |V_i|^2  (squared voltage magnitude)
+    #   I_ij = |I_ij|   (current magnitude)
     # ------------------------------------------------------------------
-    def compute_voltages(self, P_i, V0=1.0):
+    def compute_voltage_and_current(self, P_i, V0=1.0):
         """
         P_i : nodal real power
-        V0  : root voltage
+        V0  : squared voltage at root (|V_0|^2)
 
         Returns:
-            V_i  : nodal voltages
-            P_ij : branch flows
+            V_i  : dict {i: |V_i|^2}
+            I_ij : dict {(i,j): |I_ij|}
         """
+        # Step 1: compute branch flows
         P_ij = self.compute_branch_flows(P_i)
 
+        # Step 2: compute squared voltages
         V_i = {self.root: V0}
 
         for j in self.topological_order():
@@ -103,56 +94,26 @@ class RadialNetwork:
             i = self.parent[j]
             beta_ij = self.beta(i, j)
 
+            # LinDistFlow voltage equation (already squared form)
             V_i[j] = V_i[i] - beta_ij * P_ij[(i, j)]
 
-        return V_i, P_ij
+        # Step 3: compute current magnitudes
+        I_ij = {}
 
-    # ------------------------------------------------------------------
-    # V_j = V_0 - sum_{ℓ ∈ C(j)} β_ℓ P_ℓ
-    # (path formulation, matches paper exactly)
-    # ------------------------------------------------------------------
-    def compute_voltages_path_form(self, P_i, V0=1.0):
-        """
-        Alternative implementation using path set C(j)
-        """
-        P_ij = self.compute_branch_flows(P_i)
-        V_i = {}
+        for (i, j), P in P_ij.items():
+            # I_ij ≈ P_ij / sqrt(V_i)
+            # guard against numerical issues
+            if V_i[i] <= 0:
+                raise ValueError(f"Non-physical voltage at node {i}: {V_i[i]}")
 
-        for j in self.nodes:
-            if j == self.root:
-                V_i[j] = V0
-                continue
+            I_ij[(i, j)] = P / np.sqrt(V_i[i])
 
-            path = self.path_to_root(j)
-
-            voltage_drop = 0.0
-            for (i, k) in path:
-                voltage_drop += self.beta(i, k) * P_ij[(i, k)]
-
-            V_i[j] = V0 - voltage_drop
-
-        return V_i, P_ij
-
-    # ------------------------------------------------------------------
-    # C(j): edges on path from root to j
-    # ------------------------------------------------------------------
-    def path_to_root(self, j):
-        """Return list of edges ℓ ∈ C(j) from root to j"""
-        path = []
-        current = j
-
-        while current != self.root:
-            parent = self.parent[current]
-            path.append((parent, current))
-            current = parent
-
-        return path[::-1]  # root → j order
+        return V_i, I_ij
 
     # ------------------------------------------------------------------
     # Tree traversal
     # ------------------------------------------------------------------
     def topological_order(self):
-        """Breadth-first order from root"""
         order = []
         queue = [self.root]
 

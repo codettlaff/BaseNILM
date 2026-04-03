@@ -288,9 +288,11 @@ def run_experiment():
         num_l = 0.0
         den_l = 0.0
 
-        # Store full trajectories for theory
+        # Store full trajectories
         V_true_time = []
         I_true_time = []
+        V_noisy_time = []
+        I_noisy_time = []
 
         # ---------------------------
         # TIME LOOP
@@ -307,21 +309,11 @@ def run_experiment():
 
             V_true_time.append(V_true)
             I_true_time.append(I_true)
-
-            # --- Accumulate squared error (matches variance) ---
-            for i in V_true:
-                e_v = V_noisy[i] - V_true[i]
-                num_v += e_v**2
-                den_v += V_true[i]**2
-
-            for edge in I_true:
-                e_l = I_noisy[edge] - I_true[edge]
-                num_l += e_l**2
-                den_l += I_true[edge]**2
+            V_noisy_time.append(V_noisy)
+            I_noisy_time.append(I_noisy)
 
         # --- Empirical accuracy (variance-based) ---
-        acc_v_emp = 1 - num_v / (2 * den_v)
-        acc_l_emp = 1 - num_l / (2 * den_l)
+        acc_v_emp, acc_i_emp = compute_i_acc_theory(V_true_time, V_noisy_time, I_true_time, I_noisy_time)
 
         # --- Theoretical accuracy ---
         acc_v_th = compute_v_acc_theory(
@@ -331,7 +323,7 @@ def run_experiment():
             epsilon
         )
 
-        acc_l_th = compute_i_acc_theory(
+        acc_i_th = compute_i_acc_theory(
             np.array([list(I.values()) for I in I_true_time]),
             network.V,
             network.P,
@@ -347,8 +339,8 @@ def run_experiment():
             "epsilon": epsilon,
             "Acc_V_emp": acc_v_emp,
             "Acc_V_theory": acc_v_th,
-            "Acc_l_emp": acc_l_emp,
-            "Acc_l_theory": acc_l_th
+            "Acc_l_emp": acc_i_emp,
+            "Acc_l_theory": acc_i_th
         })
 
     results_filepath = os.path.join(results_folder, "results.csv")

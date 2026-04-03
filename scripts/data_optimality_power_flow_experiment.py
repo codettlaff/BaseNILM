@@ -13,7 +13,8 @@ from power_flow import RadialNetwork
 # PARAMETERS
 # ============================================================
 EXPERIMENT_NAME = "data_optimality_power_flow"
-EPSILON_VALUES = [50, 75, 100, 150, 200, 300, 500, 1000]
+EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
+EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
 N_NODES = 6
 V0 = 12.47e3
 ROOT = 0
@@ -137,7 +138,7 @@ def compute_acc_theory(network, V_true_time, I_true_time, B_t, epsilon):
     num_l = 0.0
     den_l = 0.0
 
-    for t in range(T):
+    for t in tqdm(range(T), desc="Computing Theoretical Accuracy"):
 
         V_t = V_true_time[t]
         I_t = I_true_time[t]
@@ -146,7 +147,7 @@ def compute_acc_theory(network, V_true_time, I_true_time, B_t, epsilon):
         # ---------------------------
         # Voltage term
         # ---------------------------
-        for i in tqdm(V_t, desc="Computing theoretical accuracy"):
+        for i in V_t:
 
             # Path from root to node i
             path_edges = []
@@ -274,27 +275,27 @@ def run_experiment():
     results_filepath = os.path.join(results_folder, "results.csv")
     pd.DataFrame(results).to_csv(results_filepath)
 
-def plot_results():
+def plot_results(show=False):
     """
     Reads results CSV and plots:
 
         1) Acc_V vs epsilon
         2) Acc_l vs epsilon
 
-    Each plot includes:
-        - Empirical curve
-        - Theoretical curve
+    Saves plots to experiment_results folder.
     """
 
     paths = get_paths()
     results_folder = paths["experiment_results"]
     results_filepath = os.path.join(results_folder, 'results.csv')
 
+    # Ensure folder exists
+    os.makedirs(results_folder, exist_ok=True)
+
     # ---------------------------
     # Load results
     # ---------------------------
     df = pd.read_csv(results_filepath)
-
     epsilon = df["epsilon"]
 
     # ---------------------------
@@ -312,7 +313,15 @@ def plot_results():
     plt.grid()
 
     plt.tight_layout()
-    plt.show()
+
+    # Save figure
+    save_path_v = os.path.join(results_folder, "acc_v_vs_epsilon.png")
+    plt.savefig(save_path_v, dpi=300)
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
     # ---------------------------
     # Plot: Line Accuracy
@@ -329,7 +338,15 @@ def plot_results():
     plt.grid()
 
     plt.tight_layout()
-    plt.show()
+
+    # Save figure
+    save_path_l = os.path.join(results_folder, "acc_l_vs_epsilon.png")
+    plt.savefig(save_path_l, dpi=300)
+
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
 if __name__ == "__main__":
 

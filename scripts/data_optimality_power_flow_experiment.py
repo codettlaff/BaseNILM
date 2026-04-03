@@ -123,66 +123,104 @@ def compute_accuracy_metrics(V_true, V_noisy, I_true, I_noisy):
 # ============================================================
 # THEORETICAL ACCURACY (FROM PAPER)
 # ============================================================
-def compute_acc_theory(network, V_true_time, I_true_time, B_t, epsilon):
+def compute_v_acc_theory(V, D, B, epsilon):
     """
-    Implements paper formulas:
+    Compute theoretical voltage accuracy Acc_V^(var).
 
-    E|e| = (4 / (ε√π)) * sqrt( sum B_h^2 )
+    Parameters
+    ----------
+    V : array-like of shape (T, N)
+        Voltage magnitudes V_{i,t}
+    D : dict
+        D[i] = set/list of nodes h in D(i) (downstream of node i)
+    B : array-like of shape (N,)
+        Appliance bounds B_h
+    epsilon : float
+        Privacy parameter ε
+
+    Returns
+    -------
+    acc_v : float
+        Theoretical voltage accuracy
     """
+    import numpy as np
 
-    T = len(V_true_time)
+    V = np.array(V)
+    T, N = V.shape
 
-    num_v = 0.0
-    den_v = 0.0
+    # Denominator: sum_{t=1}^T sum_{i=1}^N V_{i,t}^2
+    denom = np.sum(V**2)
 
-    num_l = 0.0
-    den_l = 0.0
+    # Numerator: sum_{i=1}^N sum_{h in D(i)} B_h^2
+    num_inner = 0.0
+    for i in range(N):
+        for h in D[i]:
+            num_inner += B[h]**2
 
-    for t in tqdm(range(T), desc="Computing Theoretical Accuracy"):
+    # Full expression: (4T / ε^2) * (num_inner / denom)
+    acc_v = 1 - (4 * T / epsilon**2) * (num_inner / denom)
 
-        V_t = V_true_time[t]
-        I_t = I_true_time[t]
-        B_sq = B_t[t] ** 2
+    return acc_v
 
-        # ---------------------------
-        # Voltage term
-        # ---------------------------
-        for i in V_t:
+def compute_i_acc_theory(I, V, P, D, C, beta, B, epsilon, edges):
+    """
+    Compute theoretical current accuracy Acc_I^(var).
 
-            # Path from root to node i
-            path_edges = []
-            node = i
-            while node != network.root:
-                parent = network.parent[node]
-                path_edges.append((parent, node))
-                node = parent
+    Parameters
+    ----------
+    I : array-like of shape (T, L)
+        Current magnitudes I_{ij,t} for each line ℓ ≡ (i,j)
+    V : array-like of shape (N,)
+        Voltage magnitudes V_j (assumed time-invariant here)
+    P : array-like of shape (L,)
+        Line real power flows P_{ij}
+    D : dict
+        D[i] = set/list of nodes h in D(i)
+    C : dict
+        C[j] = set/list of nodes k in C(j)
+    beta : 2D array-like of shape (N, N)
+        β_{kj}
+    B : array-like of shape (N,)
+        Appliance bounds B_h
+    epsilon : float
+        Privacy parameter ε
+    edges : list of tuples
+        edges[ℓ] = (i, j)
 
-            # sum over path
-            sum_Bh_sq = len(path_edges) * B_sq
+    Returns
+    -------
+    acc_i : float
+        Theoretical current accuracy
+    """
+    import numpy as np
 
-            expected_ev = (4 / (epsilon * np.sqrt(np.pi))) * np.sqrt(sum_Bh_sq)
+    I = np.array(I)
+    V = np.array(V)
+    P = np.array(P)
 
-            num_v += expected_ev
-            den_v += abs(V_t[i])
+    T, L = I.shape
 
-        # ---------------------------
-        # Line current term
-        # ---------------------------
-        for (i, j), I_ij in I_t.items():
+    # Denominator: sum_{t=1}^T sum_{ℓ=1}^L I_{ij,t}^2
+    denom = np.sum(I**2)
 
-            subtree_nodes = network.D(j)
-            sum_Bh_sq = len(subtree_nodes) * B_sq
+    # Numerator inner sum: sum_{ℓ=1}^L sum_{h ∈ D(i)} B_h^2 ( ... )^2
+    num_inner = 0.0
 
-            expected_el = (4 / (epsilon * np.sqrt(np.pi))) * np.sqrt(sum_Bh_sq)
+    for ell in range(L):
+        i, j = edges[ell]
 
-            num_l += expected_el
-            den_l += abs(I_ij)
+        # Compute (1/V_j + (P_ij / V_j^2) * sum_{k ∈ C(j)} β_kj)
+        beta_sum = sum(beta[k][j] for k in C[j])
+        factor = (1 / V[j]) + (P[ell] / (V[j]**2)) * beta_sum
 
-    acc_v_th = 1 - num_v / (2 * den_v)
-    acc_l_th = 1 - num_l / (2 * den_l)
+        # Sum over h ∈ D(i)
+        for h in D[i]:
+            num_inner += B[h]**2 * (factor**2)
 
-    return acc_v_th, acc_l_th
+    # Full expression
+    acc_i = 1 - (4 * T / epsilon**2) * (num_inner / denom)
 
+    return acc_i
 
 # ============================================================
 # MAIN EXPERIMENT

@@ -186,63 +186,41 @@ def compute_v_acc_theory(V, D, B, epsilon):
 
     return acc_v
 
-def compute_i_acc_theory(I, V, P, D, C, beta, B, epsilon, edges):
+def compute_i_acc_theory(
+    I_time, V_time, P_time,
+    D, C, beta, B, epsilon, edges
+):
     """
-    Compute theoretical current accuracy Acc_I^(var).
-
-    Parameters
-    ----------
-    I : array-like of shape (T, L)
-        Current magnitudes I_{ij,t} for each line ℓ ≡ (i,j)
-    V : array-like of shape (N,)
-        Voltage magnitudes V_j (assumed time-invariant here)
-    P : array-like of shape (L,)
-        Line real power flows P_{ij}
-    D : dict
-        D[i] = set/list of nodes h in D(i)
-    C : dict
-        C[j] = set/list of nodes k in C(j)
-    beta : 2D array-like of shape (N, N)
-        β_{kj}
-    B : array-like of shape (N,)
-        Appliance bounds B_h
-    epsilon : float
-        Privacy parameter ε
-    edges : list of tuples
-        edges[ℓ] = (i, j)
-
-    Returns
-    -------
-    acc_i : float
-        Theoretical current accuracy
+    Time-aggregated theoretical current accuracy.
     """
-    import numpy as np
 
-    I = np.array(I)
-    V = np.array(V)
-    P = np.array(P)
+    num = 0.0
+    denom = 0.0
 
-    T, L = I.shape
+    T = len(I_time)
 
-    # Denominator: sum_{t=1}^T sum_{ℓ=1}^L I_{ij,t}^2
-    denom = np.sum(I**2)
+    for t in tqdm(range(T), desc="Computing Theoretical Current Accuracy"):
 
-    # Numerator inner sum: sum_{ℓ=1}^L sum_{h ∈ D(i)} B_h^2 ( ... )^2
-    num_inner = 0.0
+        I_t = I_time[t]
+        V_t = V_time[t]
+        P_t = P_time[t]
 
-    for ell in range(L):
-        i, j = edges[ell]
+        for ell, (i, j) in enumerate(edges):
 
-        # Compute (1/V_j + (P_ij / V_j^2) * sum_{k ∈ C(j)} β_kj)
-        beta_sum = sum(beta[k][j] for k in C[j])
-        factor = (1 / V[j]) + (P[ell] / (V[j]**2)) * beta_sum
+            # --- denominator ---
+            denom += I_t[ell]**2
 
-        # Sum over h ∈ D(i)
-        for h in D(i):
-            num_inner += B[h]**2 * (factor**2)
+            # --- compute beta sum ---
+            beta_sum = sum(beta(j, k) for k in C[j])
 
-    # Full expression
-    acc_i = 1 - (4 * T / epsilon**2) * (num_inner / denom)
+            # --- factor at time t ---
+            factor = (1 / V_t[j]) + (P_t[(i, j)] / (V_t[j]**2)) * beta_sum
+
+            # --- variance term ---
+            for h in D(i):
+                num += (8 / epsilon**2) * (B[h]**2) * (factor**2)
+
+    acc_i = 1 - num / (2 * denom)
 
     return acc_i
 
@@ -327,16 +305,18 @@ def run_experiment():
             epsilon
         )
 
+        edges = [(network.parent[j], j) for j in network.nodes if j != network.root]
+
         acc_i_th = compute_i_acc_theory(
             np.array([list(I.values()) for I in I_ij_true_time]),
             V_i_true_time,
             P_ij_true_time,
             network.D,
-            network.C,
+            network.children,
             network.beta,
             B_t,
             epsilon,
-            network.edges
+            edges
         )
 
         results.append({

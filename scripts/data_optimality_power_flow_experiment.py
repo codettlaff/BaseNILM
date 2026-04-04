@@ -84,10 +84,6 @@ def apply_dp_per_node(p_nodes, p_apps, epsilon):
 def build_p_dict(p_nodes, t):
     return {i: p_nodes[i][t] for i in p_nodes}
 
-
-# ============================================================
-# ACCURACY METRICS (EMPIRICAL)
-# ============================================================
 # ============================================================
 # ACCURACY METRICS (EMPIRICAL, TIME-AGGREGATED)
 # ============================================================
@@ -167,7 +163,6 @@ def compute_v_acc_theory(V, D, B, epsilon):
     acc_v : float
         Theoretical voltage accuracy
     """
-    import numpy as np
 
     V = np.array(V)
     T, N = V.shape

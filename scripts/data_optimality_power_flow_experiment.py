@@ -143,50 +143,74 @@ def compute_accuracy_metrics(V_true_time, V_noisy_time, I_true_time, I_noisy_tim
 # ============================================================
 # THEORETICAL ACCURACY (FROM PAPER)
 # ============================================================
-def compute_v_acc_theory(V, D, B, epsilon):
+def compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta):
     """
-    Compute theoretical voltage accuracy Acc_V^(var).
+    Compute a_{jh,t} =
+        (1 / V_{j,t}) * 1_{h in D(j)}
+        + (P_{ij,t} / V_{j,t}^2) * sum_{k in C(j)} beta_{jk} * 1_{h in D(k)}
 
-    Parameters
-    ----------
-    V : array-like of shape (T, N)
-        Voltage magnitudes V_{i,t}
-    D : dict
-        D[i] = set/list of nodes h in D(i) (downstream of node i)
-    B : array-like of shape (N,)
-        Appliance bounds B_h
-    epsilon : float
-        Privacy parameter ε
-
-    Returns
-    -------
-    acc_v : float
-        Theoretical voltage accuracy
+    Notes:
+    - This version assumes P_{ij,t} corresponds to the line ending at node j.
+      (i.e., parent -> j edge is used implicitly)
     """
 
-    V = np.array(V)
-    T, N = V.shape
+    V_jt = V_time[t][j]
 
-    # Denominator: sum_{t=1}^T sum_{i=1}^N V_{i,t}^2
-    denom = np.sum(V**2)
+    # --- first term ---
+    term1 = (1 / V_jt) if h in D(j) else 0.0
 
-    # Numerator: sum_{i=1}^N sum_{h in D(i)} B_h^2
-    num_inner = 0.0
-    for i in range(N):
-        for h in D(i):
-            num_inner += B[h]**2
+    # --- second term ---
+    beta_sum = 0.0
+    for k in C[j]:
+        if h in D(k):
+            beta_sum += beta(j, k)
 
-    # Full expression: (4T / ε^2) * (num_inner / denom)
-    acc_v = 1 - (4 * T / epsilon**2) * (num_inner / denom)
+    # You need P_{ij,t}; assume parent edge is provided via P_time[(i,j)]
+    # If multiple parents are possible, this must be adjusted.
+    P_ij_t = None
+    for (i_candidate, j_candidate), val in P_time[t].items():
+        if j_candidate == j:
+            P_ij_t = val
+            break
 
-    return acc_v
+    if P_ij_t is None:
+        raise ValueError(f"No incoming edge found for node {j}")
+
+    term2 = (P_ij_t / (V_jt**2)) * beta_sum
+
+    return term1 + term2
 
 def compute_i_acc_theory(
     I_time, V_time, P_time,
     D, C, beta, B, epsilon, edges
 ):
     """
-    Time-aggregated theoretical current accuracy.
+    Theoretical current accuracy using expected absolute error:
+
+    Acc_I = 1 - (4 / ε) *
+        [ sum_{t} sum_{l} sqrt( sum_h B_h^2 a_{jh,t}^2 ) ]
+        / [ sum_{t} sum_{l} i_{ij,t} ]
+
+    Parameters
+    ----------
+    I_time : list of arrays
+        I_time[t][ell] = current on edge ell at time t
+    V_time : list/array
+        V_time[t][j] = voltage at node j at time t
+    P_time : list of dicts
+        P_time[t][(i,j)] = power flow on edge (i,j)
+    D, C : dict
+        Downstream and path sets
+    beta : function
+        beta(j,k)
+    B : array
+        Appliance bounds B_h
+    epsilon : float
+    edges : list of (i,j)
+
+    Returns
+    -------
+    acc_i : float
     """
 
     num = 0.0
@@ -194,30 +218,91 @@ def compute_i_acc_theory(
 
     T = len(I_time)
 
-    for t in tqdm(range(T), desc="Computing Theoretical Current Accuracy"):
+    for t in tqdm(range(T), desc="Computing Abs Theoretical Current Accuracy"):
 
         I_t = I_time[t]
-        V_t = V_time[t]
-        P_t = P_time[t]
 
         for ell, (i, j) in enumerate(edges):
 
             # --- denominator ---
-            denom += I_t[ell]**2
+            denom += abs(I_t[ell])
 
-            # --- compute beta sum ---
-            beta_sum = sum(beta(j, k) for k in C[j])
+            # --- compute inner sum ---
+            inner_sum = 0.0
 
-            # --- factor at time t ---
-            factor = (1 / V_t[j]) + (P_t[(i, j)] / (V_t[j]**2)) * beta_sum
+            for h in range(len(B)):
+                a_jh_t = compute_a_jh_t(i, j, h, t, V_time, P_time, D, C, beta)
+                inner_sum += (B[h]**2) * (a_jh_t**2)
 
-            # --- variance term ---
-            for h in D(i):
-                num += (8 / epsilon**2) * (B[h]**2) * (factor**2)
+            num += np.sqrt(inner_sum)
 
-    acc_i = 1 - num / (2 * denom)
+    acc_i = 1 - (4 / epsilon) * (num / denom)
 
     return acc_i
+
+def compute_v_acc_theory(
+    V_time, P_time,
+    D, C, beta, B, epsilon, edges
+):
+    """
+    Theoretical voltage accuracy using expected absolute error:
+
+    Acc_V = 1 -
+        [ sum_{t} sum_{j}
+            sqrt( (8 / ε^2) * sum_h B_h^2 ( sum_{ij in C(j)} β_{ij} a_{jh,t} )^2 )
+        ]
+        / [ 2 sum_{t} sum_{j} V_{j,t} ]
+
+    Parameters
+    ----------
+    V_time : array-like (T, N)
+    P_time : list of dicts
+        P_time[t][(i,j)] = power flow
+    D, C : dict
+    beta : function
+    B : array
+    epsilon : float
+    edges : list of (i,j)
+
+    Returns
+    -------
+    acc_v : float
+    """
+
+    num = 0.0
+    denom = 0.0
+
+    T = len(V_time)
+    N = len(V_time[0])  # assuming each entry is a dict of node voltages
+
+    for t in tqdm(range(T), desc="Computing Abs Theoretical Voltage Accuracy"):
+
+        for j in range(N):
+
+            # --- denominator ---
+            denom += abs(V_time[t][j])
+
+            # --- compute inner sum over h ---
+            inner_sum = 0.0
+
+            for h in range(len(B)):
+
+                # compute sum_{ij in C(j)} β_{ij} a_{jh,t}
+                beta_a_sum = 0.0
+
+                for (i, j_edge) in edges:
+                    if j_edge == j:  # edges in C(j)
+                        a_jh_t = compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta)
+                        beta_a_sum += beta(i, j) * a_jh_t
+
+                inner_sum += (B[h]**2) * (beta_a_sum**2)
+
+            # sqrt(8/ε^2 * inner_sum) = (sqrt(8)/ε) * sqrt(inner_sum)
+            num += (np.sqrt(8) / epsilon) * np.sqrt(inner_sum)
+
+    acc_v = 1 - num / (2 * denom)
+
+    return acc_v
 
 # ============================================================
 # MAIN EXPERIMENT
@@ -232,8 +317,8 @@ def run_experiment():
     redd_files = get_redd_files(paths["redd"])
     data = process_data(load_data(redd_files[0]), "redd")
 
-    p_agg = data['Y']  # aggregate load
-    p_apps = data['X']  # needed for DP mechanism
+    p_agg = data['Y']
+    p_apps = data['X']
 
     T = p_agg.shape[0]
 
@@ -244,9 +329,12 @@ def run_experiment():
     p_nodes = {i: p_agg.copy() for i in network.nodes}
 
     # --- Sensitivity ---
-    B_t = compute_B_t(p_apps)   # B_h
+    B_t = compute_B_t(p_apps)
 
     results = []
+
+    # Precompute edges (parent → child)
+    edges = [(network.parent[j], j) for j in network.nodes if j != network.root]
 
     for epsilon in EPSILON_VALUES:
 
@@ -255,55 +343,79 @@ def run_experiment():
         # Apply DP
         p_nodes_tilde = apply_dp_per_node(p_nodes, p_apps, epsilon)
 
-        # --- Accumulators for variance-based empirical metric ---
-        num_v = 0.0
-        den_v = 0.0
-        num_l = 0.0
-        den_l = 0.0
-
-        # Store full trajectories
+        # Store trajectories
         V_i_true_time = []
         I_ij_true_time = []
         P_ij_true_time = []
+
         V_i_noisy_time = []
-        P_ij_noisy_time = []
         I_ij_noisy_time = []
+        P_ij_noisy_time = []
 
         # ---------------------------
         # TIME LOOP
         # ---------------------------
         for t in tqdm(range(T), desc="Computing Empirical Accuracy"):
 
-            # True + noisy loads
             p_true = build_p_dict(p_nodes, t)
             p_tilde = build_p_dict(p_nodes_tilde, t)
 
-            # Power flow
             V_i_true, P_ij_true, I_ij_true = network.solve_power_flow(p_true)
             V_i_noisy, P_ij_noisy, I_ij_noisy = network.solve_power_flow(p_tilde)
 
             V_i_true_time.append(V_i_true)
             P_ij_true_time.append(P_ij_true)
             I_ij_true_time.append(I_ij_true)
+
             V_i_noisy_time.append(V_i_noisy)
             P_ij_noisy_time.append(P_ij_noisy)
             I_ij_noisy_time.append(I_ij_noisy)
 
-        # --- Empirical accuracy (variance-based) ---
-        acc_v_emp, acc_i_emp = compute_accuracy_metrics(V_i_true_time, V_i_noisy_time, I_ij_true_time, I_ij_noisy_time)
+        # ---------------------------
+        # EMPIRICAL ACCURACY (ABS ERROR)
+        # ---------------------------
+        num_v = 0.0
+        den_v = 0.0
+        num_i = 0.0
+        den_i = 0.0
 
-        # --- Theoretical accuracy ---
+        for t in range(T):
+
+            V_true = V_i_true_time[t]
+            V_noisy = V_i_noisy_time[t]
+
+            I_true = I_ij_true_time[t]
+            I_noisy = I_ij_noisy_time[t]
+
+            # Voltage
+            for i in V_true:
+                num_v += abs(V_noisy[i] - V_true[i])
+                den_v += abs(V_true[i])
+
+            # Current
+            for ell, (i, j) in enumerate(edges):
+                num_i += abs(I_noisy[(i, j)] - I_true[(i, j)])
+                den_i += abs(I_true[(i, j)])
+
+        acc_v_emp = 1 - num_v / (2 * den_v)
+        acc_i_emp = 1 - num_i / (2 * den_i)
+
+        # ---------------------------
+        # THEORETICAL ACCURACY (ABS ERROR)
+        # ---------------------------
         acc_v_th = compute_v_acc_theory(
-            np.array([list(V.values()) for V in V_i_true_time]),
+            V_i_true_time,
+            P_ij_true_time,
             network.D,
+            network.children,
+            network.beta,
             B_t,
-            epsilon
+            epsilon,
+            edges
         )
 
-        edges = [(network.parent[j], j) for j in network.nodes if j != network.root]
-
         acc_i_th = compute_i_acc_theory(
-            np.array([list(I.values()) for I in I_ij_true_time]),
+            I_ij_true_time,
             V_i_true_time,
             P_ij_true_time,
             network.D,
@@ -318,12 +430,15 @@ def run_experiment():
             "epsilon": epsilon,
             "Acc_V_emp": acc_v_emp,
             "Acc_V_theory": acc_v_th,
-            "Acc_l_emp": acc_i_emp,
-            "Acc_l_theory": acc_i_th
+            "Acc_I_emp": acc_i_emp,
+            "Acc_I_theory": acc_i_th
         })
 
+    # Save results
     results_filepath = os.path.join(results_folder, "results.csv")
     pd.DataFrame(results).to_csv(results_filepath, index=False)
+
+    return results
 
 def plot_results(show=False):
     """

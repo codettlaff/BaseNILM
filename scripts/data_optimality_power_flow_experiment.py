@@ -225,13 +225,13 @@ def compute_i_acc_theory(
         for ell, (i, j) in enumerate(edges):
 
             # --- denominator ---
-            denom += abs(I_t[ell])
+            denom += abs(I_t[(i, j)])
 
             # --- compute inner sum ---
             inner_sum = 0.0
 
             for h in range(len(B)):
-                a_jh_t = compute_a_jh_t(i, j, h, t, V_time, P_time, D, C, beta)
+                a_jh_t = compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta)
                 inner_sum += (B[h]**2) * (a_jh_t**2)
 
             num += np.sqrt(inner_sum)
@@ -403,6 +403,7 @@ def run_experiment():
         # ---------------------------
         # THEORETICAL ACCURACY (ABS ERROR)
         # ---------------------------
+        '''
         acc_v_th = compute_v_acc_theory(
             V_i_true_time,
             P_ij_true_time,
@@ -413,6 +414,8 @@ def run_experiment():
             epsilon,
             edges
         )
+        '''
+        acc_v_th = 0.9 # Debugging
 
         acc_i_th = compute_i_acc_theory(
             I_ij_true_time,

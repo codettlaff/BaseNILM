@@ -14,10 +14,12 @@ from power_flow import RadialNetwork
 # ============================================================
 EXPERIMENT_NAME = "data_optimality_power_flow"
 EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
-EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
+EPSILON_VALUES = [0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
+# EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
 N_NODES = 6
 V0 = 12.47e3
 ROOT = 0
+T_set = 10 # Limit Timesteps
 
 # -----------------------------
 # Path Utilities (reuse style)
@@ -304,6 +306,51 @@ def compute_v_acc_theory(
 
     return acc_v
 
+def trim_data(data, T_new):
+    """
+    Trim dataset to first T_new time steps for faster debugging.
+
+    Parameters
+    ----------
+    data : dict
+        Expected keys:
+            'Y' : aggregate signal (T,)
+            'X' : appliance-level signals (T, n_appliances)
+    T_new : int
+        Number of time steps to keep
+
+    Returns
+    -------
+    data_trimmed : dict
+        Same structure as input, but truncated
+    """
+
+    data_trimmed = {}
+
+    # --- Trim aggregate ---
+    if 'Y' in data:
+        data_trimmed['Y'] = data['Y'][:T_new]
+
+    # --- Trim appliance-level data ---
+    if 'X' in data:
+        data_trimmed['X'] = data['X'][:T_new]
+
+    # --- Copy any other fields safely ---
+    for key in data:
+        if key not in ['Y', 'X']:
+            val = data[key]
+
+            # If it's time-series aligned, try trimming
+            try:
+                if hasattr(val, '__len__') and len(val) >= T_new:
+                    data_trimmed[key] = val[:T_new]
+                else:
+                    data_trimmed[key] = val
+            except:
+                data_trimmed[key] = val
+
+    return data_trimmed
+
 # ============================================================
 # MAIN EXPERIMENT
 # ============================================================
@@ -316,6 +363,8 @@ def run_experiment():
 
     redd_files = get_redd_files(paths["redd"])
     data = process_data(load_data(redd_files[0]), "redd")
+
+    if T_set: data = trim_data(data, T_set)
 
     p_agg = data['Y']
     p_apps = data['X']
@@ -403,7 +452,6 @@ def run_experiment():
         # ---------------------------
         # THEORETICAL ACCURACY (ABS ERROR)
         # ---------------------------
-        '''
         acc_v_th = compute_v_acc_theory(
             V_i_true_time,
             P_ij_true_time,
@@ -414,8 +462,6 @@ def run_experiment():
             epsilon,
             edges
         )
-        '''
-        acc_v_th = 0.9 # Debugging
 
         acc_i_th = compute_i_acc_theory(
             I_ij_true_time,
@@ -443,12 +489,19 @@ def run_experiment():
 
     return results
 
-def plot_results(show=False):
+def plot_results(show=False, log_scale=False):
     """
     Reads results CSV and plots:
 
         1) Acc_V vs epsilon
-        2) Acc_l vs epsilon
+        2) Acc_I vs epsilon
+
+    Parameters
+    ----------
+    show : bool
+        Whether to display plots
+    log_scale : bool
+        If True, use logarithmic scale on epsilon axis
 
     Saves plots to experiment_results folder.
     """
@@ -474,6 +527,9 @@ def plot_results(show=False):
     plt.plot(epsilon, df["Acc_V_emp"], marker='o', label="Empirical")
     plt.plot(epsilon, df["Acc_V_theory"], linestyle='--', label="Theoretical")
 
+    if log_scale:
+        plt.xscale('log')
+
     plt.xlabel(r"Privacy Budget $\epsilon$")
     plt.ylabel(r"$\mathrm{Acc}_V$")
     plt.title(r"Voltage Accuracy vs $\epsilon$")
@@ -483,7 +539,8 @@ def plot_results(show=False):
     plt.tight_layout()
 
     # Save figure
-    save_path_v = os.path.join(results_folder, "acc_v_vs_epsilon.png")
+    filename_v = "acc_v_vs_epsilon_log.png" if log_scale else "acc_v_vs_epsilon.png"
+    save_path_v = os.path.join(results_folder, filename_v)
     plt.savefig(save_path_v, dpi=300)
 
     if show:
@@ -492,12 +549,15 @@ def plot_results(show=False):
         plt.close()
 
     # ---------------------------
-    # Plot: Line Accuracy
+    # Plot: Line Current Accuracy
     # ---------------------------
     plt.figure()
 
-    plt.plot(epsilon, df["Acc_l_emp"], marker='o', label="Empirical")
-    plt.plot(epsilon, df["Acc_l_theory"], linestyle='--', label="Theoretical")
+    plt.plot(epsilon, df["Acc_I_emp"], marker='o', label="Empirical")
+    plt.plot(epsilon, df["Acc_I_theory"], linestyle='--', label="Theoretical")
+
+    if log_scale:
+        plt.xscale('log')
 
     plt.xlabel(r"Privacy Budget $\epsilon$")
     plt.ylabel(r"$\mathrm{Acc}_\ell$")
@@ -508,7 +568,8 @@ def plot_results(show=False):
     plt.tight_layout()
 
     # Save figure
-    save_path_l = os.path.join(results_folder, "acc_l_vs_epsilon.png")
+    filename_l = "acc_l_vs_epsilon_log.png" if log_scale else "acc_l_vs_epsilon.png"
+    save_path_l = os.path.join(results_folder, filename_l)
     plt.savefig(save_path_l, dpi=300)
 
     if show:
@@ -519,4 +580,4 @@ def plot_results(show=False):
 if __name__ == "__main__":
 
     run_experiment()
-    plot_results(show=True)
+    plot_results(show=True,log_scale=True)

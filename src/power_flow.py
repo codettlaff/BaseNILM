@@ -30,6 +30,25 @@ class RadialNetwork:
             self.x[(i, j)] = x_ij
 
     # ------------------------------------------------------------------
+    # C(i): path_to_root
+    # ------------------------------------------------------------------
+    def C(self, i):
+        path = []
+        current = i
+
+        # Walk up to the root using parent pointers
+        while True:
+            path.append(current)
+            if current == self.root:
+                break
+            current = self.parent[current]
+
+        # Reverse so it's root → i (not i → root)
+        path.reverse()
+
+        return path
+
+    # ------------------------------------------------------------------
     # D(i): downstream nodes
     # ------------------------------------------------------------------
     def D(self, i):

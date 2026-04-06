@@ -163,7 +163,7 @@ def compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta):
 
     # --- second term ---
     beta_sum = 0.0
-    for k in C[j]:
+    for k in C[j]: # Bug C(j) is being treated as immediate children only, not all children.
         if h in D(k):
             beta_sum += beta(j, k)
 

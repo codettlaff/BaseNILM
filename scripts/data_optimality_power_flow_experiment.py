@@ -184,7 +184,7 @@ def compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta):
 
 def compute_i_acc_theory(
     I_time, V_time, P_time,
-    D, C, beta, B, epsilon, edges
+    N, D, C, beta, B, epsilon, edges
 ):
     """
     Theoretical current accuracy using expected absolute error:
@@ -232,7 +232,7 @@ def compute_i_acc_theory(
             # --- compute inner sum ---
             inner_sum = 0.0
 
-            for h in range(len(B)):
+            for h in N:
                 a_jh_t = compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta)
                 inner_sum += (B[h]**2) * (a_jh_t**2)
 
@@ -244,7 +244,7 @@ def compute_i_acc_theory(
 
 def compute_v_acc_theory(
     V_time, P_time,
-    D, C, beta, B, epsilon, edges
+    N, D, C, beta, B, epsilon, edges
 ):
     """
     Theoretical voltage accuracy using expected absolute error:
@@ -275,11 +275,10 @@ def compute_v_acc_theory(
     denom = 0.0
 
     T = len(V_time)
-    N = len(V_time[0])  # assuming each entry is a dict of node voltages
 
     for t in tqdm(range(T), desc="Computing Abs Theoretical Voltage Accuracy"):
 
-        for j in range(N):
+        for j in N:
 
             # --- denominator ---
             denom += abs(V_time[t][j])
@@ -287,7 +286,7 @@ def compute_v_acc_theory(
             # --- compute inner sum over h ---
             inner_sum = 0.0
 
-            for h in range(len(B)):
+            for h in N:
 
                 # compute sum_{ij in C(j)} β_{ij} a_{jh,t}
                 beta_a_sum = 0.0
@@ -455,6 +454,7 @@ def run_experiment():
         acc_v_th = compute_v_acc_theory(
             V_i_true_time,
             P_ij_true_time,
+            network.nodes,
             network.D,
             network.children,
             network.beta,
@@ -467,6 +467,7 @@ def run_experiment():
             I_ij_true_time,
             V_i_true_time,
             P_ij_true_time,
+            network.nodes,
             network.D,
             network.children,
             network.beta,

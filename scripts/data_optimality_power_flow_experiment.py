@@ -145,6 +145,17 @@ def compute_accuracy_metrics(V_true_time, V_noisy_time, I_true_time, I_noisy_tim
 # ============================================================
 # THEORETICAL ACCURACY (FROM PAPER)
 # ============================================================
+def compute_a_jh_t(network, j, h, t, V, P):
+
+    if h in network.D(j):
+        term1 = 1 / V[j,t]
+    else: term1 = 0
+
+    term2 = 0
+    for k in network.C(j):
+        if h in network.D(k):
+            term2 = term2 + network.beta(j,k)
+
 def compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta):
     """
     Compute a_{jh,t} =
@@ -163,7 +174,7 @@ def compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta):
 
     # --- second term ---
     beta_sum = 0.0
-    for k in C[j]: # Bug C(j) is being treated as immediate children only, not all children.
+    for k in C: # Bug C(j) is being treated as immediate children only, not all children.
         if h in D(k):
             beta_sum += beta(j, k)
 
@@ -184,7 +195,7 @@ def compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta):
 
 def compute_i_acc_theory(
     I_time, V_time, P_time,
-    N, D, C, beta, B, epsilon, edges
+    network, B, epsilon, edges
 ):
     """
     Theoretical current accuracy using expected absolute error:
@@ -233,7 +244,7 @@ def compute_i_acc_theory(
             inner_sum = 0.0
 
             for h in N:
-                a_jh_t = compute_a_jh_t(j, h, t, V_time, P_time, D, C, beta)
+                a_jh_t = compute_a_jh_t(j, h, t, V_time, P_time, network.D, C, beta)
                 inner_sum += (B[h]**2) * (a_jh_t**2)
 
             num += np.sqrt(inner_sum)
@@ -244,7 +255,7 @@ def compute_i_acc_theory(
 
 def compute_v_acc_theory(
     V_time, P_time,
-    N, D, C, beta, B, epsilon, edges
+   network, B, epsilon, edges
 ):
     """
     Theoretical voltage accuracy using expected absolute error:
@@ -454,10 +465,7 @@ def run_experiment():
         acc_v_th = compute_v_acc_theory(
             V_i_true_time,
             P_ij_true_time,
-            network.nodes,
-            network.D,
-            network.children,
-            network.beta,
+            network,
             B_t,
             epsilon,
             edges
@@ -467,10 +475,7 @@ def run_experiment():
             I_ij_true_time,
             V_i_true_time,
             P_ij_true_time,
-            network.nodes,
-            network.D,
-            network.children,
-            network.beta,
+            network,
             B_t,
             epsilon,
             edges

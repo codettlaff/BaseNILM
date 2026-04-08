@@ -24,6 +24,7 @@ class RadialNetwork:
         # Line parameters
         self.r = {}
         self.x = {}
+        self.beta = {}
 
         for i, j, r_ij, x_ij in edges:
             self.children[i].append(j)
@@ -31,6 +32,7 @@ class RadialNetwork:
             self.lines.append((i, j))
             self.r[(i, j)] = r_ij
             self.x[(i, j)] = x_ij
+            self.beta[(i, j)] = r_ij + self.alpha * x_ij  # β_ij = r_ij + α x_ij
 
         self.p = [] # list of floats active power branch flows. empty until power flow solved
         self.V = [] # list of floats nodal voltage injections. empty until power flow solved
@@ -54,6 +56,7 @@ class RadialNetwork:
     # C(i):Set of all nodes along path from root to node.
     # ------------------------------------------------------------------
     def C(self, i):
+        """Return list of nodes on the path from root to node i (inclusive)."""
         path = []
         current = i
 
@@ -73,6 +76,7 @@ class RadialNetwork:
     # D(i): Set of all nodes downstream of node i.
     # ------------------------------------------------------------------
     def D(self, i):
+        """Return list of all nodes in the subtree rooted at node i (including i)."""
         stack = [i]
         downstream = []
 
@@ -87,104 +91,6 @@ class RadialNetwork:
     # L(i): Set of all lines along the path from root to node.
     # ------------------------------------------------------------------
     def L(self, i):
+        """Return list of edges (i,j) along the path from root to node i."""
         path = self.C(i)
         return [(path[k], path[k + 1]) for k in range(len(path) - 1)]
-
-    # ------------------------------------------------------------------
-    # Branch flow: P_ij = sum_{h ∈ D(j)} P_h
-    # ------------------------------------------------------------------
-    def compute_branch_flows(self, P_i):
-        P_ij = {}
-
-        subtree_sum = {i: P_i.get(i, 0.0) for i in self.nodes}
-        order = self.topological_order()[::-1]
-
-        for j in order:
-            if j == self.root:
-                continue
-
-            i = self.parent[j]
-            subtree_sum[i] += subtree_sum[j]
-            P_ij[(i, j)] = subtree_sum[j]
-
-        return P_ij
-
-    # ------------------------------------------------------------------
-    # β_ij = 2(r_ij + α x_ij)
-    # ------------------------------------------------------------------
-    def beta(self, i, j):
-        return 2 * (self.r[(i, j)] + self.alpha * self.x[(i, j)])
-
-    # ------------------------------------------------------------------
-    # Main function:
-    # Returns:
-    #   V_i  = |V_i|^2  (squared voltage magnitude)
-    #   I_ij = |I_ij|   (current magnitude)
-    # ------------------------------------------------------------------
-    def solve_power_flow(self, P_i):
-        """
-        Solve LinDistFlow power flow.
-
-        Parameters
-        ----------
-        P_i : dict
-            Nodal real power injections P_i
-
-        Returns
-        -------
-        V_i : dict
-            Squared voltages {i: |V_i|^2}
-        P_ij : dict
-            Branch real power flows {(i,j): P_{ij}}
-        I_ij : dict
-            Branch current magnitudes {(i,j): |I_{ij}|}
-        """
-
-        # --------------------------------------------------
-        # Step 1: compute branch flows P_{ij}
-        # --------------------------------------------------
-        P_ij = self.compute_branch_flows(P_i)
-
-        # --------------------------------------------------
-        # Step 2: compute squared voltages V_i = |V_i|^2
-        # --------------------------------------------------
-        V_i = {self.root: self.V0}
-
-        for j in self.topological_order():
-            if j == self.root:
-                continue
-
-            i = self.parent[j]
-            beta_ij = self.beta(i, j)
-
-            # LinDistFlow voltage equation
-            V_i[j] = V_i[i] - beta_ij * P_ij[(i, j)]
-
-        # --------------------------------------------------
-        # Step 3: compute current magnitudes I_{ij}
-        # --------------------------------------------------
-        I_ij = {}
-
-        for (i, j), P in P_ij.items():
-
-            if V_i[i] <= 0:
-                raise ValueError(f"Non-physical voltage at node {i}: {V_i[i]}")
-
-            # |I_{ij}| ≈ P_{ij} / sqrt(V_i)
-            I_ij[(i, j)] = P / np.sqrt(V_i[i])
-
-        return V_i, P_ij, I_ij
-
-    # ------------------------------------------------------------------
-    # Tree traversal
-    # ------------------------------------------------------------------
-    def topological_order(self):
-        order = []
-        queue = [self.root]
-
-        while queue:
-            node = queue.pop(0)
-            order.append(node)
-            queue.extend(self.children.get(node, []))
-
-        return order

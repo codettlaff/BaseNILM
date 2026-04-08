@@ -41,6 +41,7 @@ class RadialNetwork:
         # Privacy Stuff
         if epsilon: self.do_differential_privacy = True
         else: self.do_differential_privacy = False
+
         self.epsilon = epsilon
         self.eta = [] # list of noise added to active power injection at each node, empty until differntial privacy calculated
 
@@ -53,6 +54,12 @@ class RadialNetwork:
         self.e_i = [] # list of line current flow error, empty until error calculated
         self.e_p = [] # list of line power flow error, empty until error calculated
         self.e_V = [] # list of nodal voltage error, empty until error calculated
+
+        # Initialize with Power Flow
+        self.power_flow()
+        if self.do_differential_privacy:
+            self.differential_privacy()
+            self.noisy_power_flow()
 
     # ------------------------------------------------------------------
     # C(i):Set of all nodes along path from root to node.

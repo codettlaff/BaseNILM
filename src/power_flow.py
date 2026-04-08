@@ -94,3 +94,19 @@ class RadialNetwork:
         """Return list of edges (i,j) along the path from root to node i."""
         path = self.C(i)
         return [(path[k], path[k + 1]) for k in range(len(path) - 1)]
+
+    # ------------------------------------------------------------------
+    # Power Flow
+    # ------------------------------------------------------------------
+    def compute_voltage_drops(self):
+        """
+        Compute voltage drops v_{i,j} on each line (i,j),
+        where v_{i,j} = beta_{i,j} * sum_{h in D(j)} P_h.
+        """
+
+        for (i, j) in self.lines:
+            # Sum of downstream power injections at node j
+            P_sum = sum(self.P[h] for h in self.D(j))
+
+            # Voltage drop on line (i,j)
+            self.v.append(self.beta[(i, j)] * P_sum)

@@ -1,4 +1,6 @@
 import numpy as np
+from tensorflow.python.autograph.utils.tensors import is_dense_tensor
+
 
 class RadialNetwork:
     def __init__(self, nodes, edges, root=0, V0=1.0, alpha=1.0, epsilon=None):
@@ -77,6 +79,10 @@ class RadialNetwork:
         self.e_i = {}  # {(i,j,t): current error}
         self.e_p = {}  # {(i,j,t): power error}
         self.e_V = {}  # {(i,t): voltage error}
+
+        self.acc_p = 0
+        self.acc_i = 0
+        self.acc_v = 0
 
     # ------------------------------------------------------------------
     # C(i):Set of all nodes along path from root to node.
@@ -204,5 +210,41 @@ class RadialNetwork:
     # ------------------------------------------------------------------
     def compute_empirical_accuracy(self):
 
-        self.e_p = self.P_tilde - self.P
-        self.e_i = self.i_tilde - self.i
+        p_num = 0
+        p_den = 0
+        i_num = 0
+        i_den = 0
+
+        for t in range(len(self.T)):
+            for (i,j) in self.lines:
+
+                self.e_p[(i,j,t)] = np.abs(self.p_tilde[(i,j,t)] - self.p[(i,j,t)])
+                self.e_i[(i,j,t)] = np.abs(self.i_tilde[(i,j,t)] - self.i[(i,j,t)])
+
+                p_num += np.sqrt(self.e_p[(i,j,t)])
+                p_den += self.p[(i,j,t)]
+
+                i_num += np.sqrt(self.e_i[(i,j,t)])
+                i_den += self.i[(i,j,t)]
+
+        p_den = 2 * p_den
+        i_den = 2 * i_den
+
+        self.acc_p = 1 - p_num / p_den
+        self.acc_i = 1 - i_num / i_den
+
+        V_num = 0
+        V_dem = 0
+
+        for t in range(len(self.T)):
+            for i in self.nodes:
+
+                self.e_V = np.abs(self.V_tilde[(i, t)] - self.V[(i, t)])
+
+                V_num += np.sqrt(self.e_V)
+                V_dem += self.V[(i, t)]
+
+        V_dem = 2 * V_dem
+        self.acc_v = 1 - V_num / V_dem
+
+

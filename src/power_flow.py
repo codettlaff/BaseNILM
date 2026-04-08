@@ -104,17 +104,30 @@ class RadialNetwork:
         where v_{i,j} = beta_{i,j} * sum_{h in D(j)} P_h.
         """
 
-        for (i, j) in self.lines:
+        for ell in range(len(self.lines)):
+
+            (i,j) = self.lines[ell]
+
             # Sum of downstream power injections at node j
             P_sum = sum(self.P[h] for h in self.D(j))
 
             # Voltage drop on line (i,j)
-            self.v.append(self.beta[(i, j)] * P_sum)
+            self.v[ell] = self.beta[ell] * P_sum
 
-    def compute_line_flows(self):
+    def compute_current_line_flows(self):
         """
         Compute current flows i_{i,j} on each line (i,j)
         """
 
-        for (i,j) in self.lines:
-            self.i.append(self.v / (self.r + self.x))
+        for ell in range(len(self.lines)):
+            self.i[ell] = self.v[ell] / (self.r[ell] + self.x[ell])
+
+    def compute_node_voltage_magnitudes(self):
+        """
+        Compute squared voltage magnitudes V_i at each node,
+        where V_i = V_0 - sum_{(k,j) in L(i)} v_{k,j}.
+        """
+
+        for i in self.nodes:
+            self.V[i] = self.V0 - sum(self.v[ell] for ell in self.L(i))
+

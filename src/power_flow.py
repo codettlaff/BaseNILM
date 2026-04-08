@@ -3,63 +3,76 @@ import numpy as np
 class RadialNetwork:
     def __init__(self, nodes, edges, root=0, V0=1.0, alpha=1.0, epsilon=None):
         """
-        nodes : dict {i: {"P": P_i, "B": B_i}}
+        nodes : dict {i: {"P": [P_i(t)], "B": [B_i(t)]}}
         edges : list of (i, j, r_ij, x_ij)
         root  : root node
         V0    : root node voltage
         alpha : constant power factor parameter (Q_i = alpha P_i)
         """
+
+        # -----------------------------
+        # Time Series
+        # -----------------------------
         self.nodes = list(nodes.keys())  # Node indices
-        self.P = {i: data["P"] for i, data in nodes.items()} # Nodal active power injections
-        self.B = {i: data["B"] for i, data in nodes.items()} # Appliance power bound
+        self.P = {i: list(data["P"]) for i, data in nodes.items()} # Nodal active power injections
+        self.B = {i: list(data["B"]) for i, data in nodes.items()} # Appliance power bound
+        self.T = len(next(iter(self.P.values()))) # Number of timesteps
+
+        # -----------------------------
+        # Constants
+        # -----------------------------
         self.root = root
         self.V0 = V0
         self.alpha = alpha
+        self.epsilon = epsilon
+        self.do_differential_privacy = epsilon is not None
 
+        # -----------------------------
         # Tree structure
+        # -----------------------------
         self.children = {i: [] for i in self.nodes}
         self.parent = {}
         self.lines = []
 
+        # -----------------------------
         # Line parameters
-        self.r = []
-        self.x = []
-        self.beta = []
+        # -----------------------------
+        self.r = {}
+        self.x = {}
+        self.beta = {}
 
         for i, j, r_ij, x_ij in edges:
             self.children[i].append(j)
             self.parent[j] = i
             self.lines.append((i, j))
-            self.r.append(r_ij)
-            self.x.append(x_ij)
-            self.beta.append(r_ij + self.alpha * x_ij) # β_ij = r_ij + α x_ij
 
-        self.p = [] # list of floats active power branch flows. empty until power flow solved
-        self.V = [] # list of floats nodal voltage injections. empty until power flow solved
-        self.v = [] # list of floats branch voltage drops, empty until power flow solved
+            self.r[(i, j)] = r_ij
+            self.x[(i, j)] = x_ij
+            self.beta[(i, j)] = r_ij + self.alpha * x_ij
 
-        # Privacy Stuff
-        if epsilon: self.do_differential_privacy = True
-        else: self.do_differential_privacy = False
+        # -----------------------------
+        # Time-series results (initialized empty dicts)
+        # -----------------------------
+        self.p = {}  # {(i,j,t): P_ij(t)}
+        self.V = {}  # {(i,t): V_i(t)}
+        self.v = {}  # {(i,j,t): v_ij(t)}
 
-        self.epsilon = epsilon
-        self.eta = [] # list of noise added to active power injection at each node, empty until differntial privacy calculated
+        # -----------------------------
+        # Privacy
+        # -----------------------------
+        self.eta = {}  # {(i,t): noise}
+        self.P_tilde = {}  # {(i,t): noisy nodal power}
 
-        self.P_tilde = [] # list of noisy nodal power injection, empty until differential privacy calculated
+        self.p_tilde = {}  # {(i,j,t): noisy branch flow}
+        self.V_tilde = {}  # {(i,t): noisy voltage}
+        self.v_tilde = {}  # {(i,j,t): noisy voltage drop}
 
-        self.p_tilde = [] # list of noisy active power branch flows. empty until power flow solved
-        self.V_tilde = [] # list of noisy floats nodal voltage injections. empty until power flow solved
-        self.v_tilde = [] # list of noisy branch voltage drops, empty until power flow solved
-
-        self.e_i = [] # list of line current flow error, empty until error calculated
-        self.e_p = [] # list of line power flow error, empty until error calculated
-        self.e_V = [] # list of nodal voltage error, empty until error calculated
-
-        # Initialize with Power Flow
-        self.power_flow()
-        if self.do_differential_privacy:
-            self.differential_privacy()
-            self.noisy_power_flow()
+        # -----------------------------
+        # Errors
+        # -----------------------------
+        self.e_i = {}  # {(i,j,t): current error}
+        self.e_p = {}  # {(i,j,t): power error}
+        self.e_V = {}  # {(i,t): voltage error}
 
     # ------------------------------------------------------------------
     # C(i):Set of all nodes along path from root to node.
@@ -168,3 +181,8 @@ class RadialNetwork:
 
                 # Nodal voltage magnitudes
                 self.V_tilde[i] = self.V0 - sum(self.v_tilde[ell])
+
+    # ------------------------------------------------------------------
+    # Empirical Accuracy
+    # ------------------------------------------------------------------
+    def compute_accuracy(self, e_p, T):

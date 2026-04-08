@@ -22,17 +22,17 @@ class RadialNetwork:
         self.lines = []
 
         # Line parameters
-        self.r = {}
-        self.x = {}
-        self.beta = {}
+        self.r = []
+        self.x = []
+        self.beta = []
 
         for i, j, r_ij, x_ij in edges:
             self.children[i].append(j)
             self.parent[j] = i
             self.lines.append((i, j))
-            self.r[(i, j)] = r_ij
-            self.x[(i, j)] = x_ij
-            self.beta[(i, j)] = r_ij + self.alpha * x_ij  # β_ij = r_ij + α x_ij
+            self.r.append(r_ij)
+            self.x.append(x_ij)
+            self.beta.append(r_ij + self.alpha * x_ij) # β_ij = r_ij + α x_ij
 
         self.p = [] # list of floats active power branch flows. empty until power flow solved
         self.V = [] # list of floats nodal voltage injections. empty until power flow solved
@@ -110,3 +110,11 @@ class RadialNetwork:
 
             # Voltage drop on line (i,j)
             self.v.append(self.beta[(i, j)] * P_sum)
+
+    def compute_line_flows(self):
+        """
+        Compute current flows i_{i,j} on each line (i,j)
+        """
+
+        for (i,j) in self.lines:
+            self.i.append(self.v / (self.r + self.x))

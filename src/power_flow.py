@@ -115,6 +115,12 @@ class RadialNetwork:
 
         for i in self.nodes:
 
-            # Nodal voltage magnitudes
-            self.V[i] = self.V0 - sum(self.v[ell] for ell in self.L(i))
+            L = self.L(i)
+            for ell in range(len(L)):
 
+                (i,j) = L(ell)
+
+                # Nodal voltage magnitudes
+                self.V[i] = self.V0 - sum(self.v[ell])
+
+    def noisy_power_flow(self):

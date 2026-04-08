@@ -44,6 +44,8 @@ class RadialNetwork:
         self.epsilon = epsilon
         self.eta = [] # list of noise added to active power injection at each node, empty until differntial privacy calculated
 
+        self.P_tilde = [] # list of noisy nodal power injection, empty until differential privacy calculated
+
         self.p_tilde = [] # list of noisy active power branch flows. empty until power flow solved
         self.V_tilde = [] # list of noisy floats nodal voltage injections. empty until power flow solved
         self.v_tilde = [] # list of noisy branch voltage drops, empty until power flow solved
@@ -96,6 +98,18 @@ class RadialNetwork:
         return [(path[k], path[k + 1]) for k in range(len(path) - 1)]
 
     # ------------------------------------------------------------------
+    # Differential Privacy
+    # ------------------------------------------------------------------
+    def differential_privacy(self):
+
+        for i in self.nodes:
+
+            var = 8 * self.B[i] / self.epsilon^2
+            b = np.sqrt(var)
+            self.eta[i] = np.random.laplace(0, b)
+            self.P_tilde[i] = self.P[i] + self.eta[i]
+
+    # ------------------------------------------------------------------
     # Power Flow
     # ------------------------------------------------------------------
     def power_flow(self):
@@ -124,3 +138,26 @@ class RadialNetwork:
                 self.V[i] = self.V0 - sum(self.v[ell])
 
     def noisy_power_flow(self):
+
+        for ell in range(len(self.lines)):
+
+            (i, j) = self.lines[ell]
+
+            # line power flows = sum of downstream power injections at node j
+            self.p_tilde[ell] = sum(self.P_tilde[h] for h in self.D(j))
+
+            # line voltage drops
+            self.v_tilde[ell] = self.beta[ell] * self.p_tilde[ell]
+
+            # line current flows
+            self.i_tilde[ell] = self.v_tilde[ell] / (self.r[ell] + self.x[ell])
+
+        for i in self.nodes:
+
+            L = self.L(i)
+            for ell in range(len(L)):
+
+                (i,j) = L(ell)
+
+                # Nodal voltage magnitudes
+                self.V_tilde[i] = self.V0 - sum(self.v_tilde[ell])

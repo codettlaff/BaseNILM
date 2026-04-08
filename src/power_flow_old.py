@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class RadialNetwork:
     def __init__(self, nodes, edges, root=0, V0=1.0, alpha=1.0):
         """
@@ -29,7 +30,7 @@ class RadialNetwork:
             self.x[(i, j)] = x_ij
 
     # ------------------------------------------------------------------
-    # C(i):Set of all nodes along path from root to node.
+    # C(i): path_to_root
     # ------------------------------------------------------------------
     def C(self, i):
         path = []
@@ -48,7 +49,7 @@ class RadialNetwork:
         return path
 
     # ------------------------------------------------------------------
-    # D(i): Set of all nodes downstream of node i.
+    # D(i): downstream nodes
     # ------------------------------------------------------------------
     def D(self, i):
         stack = [i]
@@ -60,13 +61,6 @@ class RadialNetwork:
             stack.extend(self.children.get(node, []))
 
         return downstream
-
-    # ------------------------------------------------------------------
-    # L(i): Set of all lines along the path from root to node.
-    # ------------------------------------------------------------------
-    def L(self, i):
-        path = self.C(i)
-        return [(path[k], path[k + 1]) for k in range(len(path) - 1)]
 
     # ------------------------------------------------------------------
     # Branch flow: P_ij = sum_{h ∈ D(j)} P_h

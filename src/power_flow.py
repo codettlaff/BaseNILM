@@ -121,66 +121,71 @@ class RadialNetwork:
     # Differential Privacy
     # ------------------------------------------------------------------
     def differential_privacy(self):
+        """
+        Add Laplace noise to nodal power injections for all timesteps.
+        """
+        for t in range(self.T):
+            for i in self.nodes:
+                var = 8 * self.B[i][t] / (self.epsilon ** 2)
+                b = np.sqrt(var / 2)
 
-        for i in self.nodes:
+                noise = np.random.laplace(0, b)
 
-            var = 8 * self.B[i] / self.epsilon^2
-            b = np.sqrt(var)
-            self.eta[i] = np.random.laplace(0, b)
-            self.P_tilde[i] = self.P[i] + self.eta[i]
+                self.eta[(i, t)] = noise
+                self.P_tilde[(i, t)] = self.P[i][t] + noise
 
     # ------------------------------------------------------------------
     # Power Flow
     # ------------------------------------------------------------------
     def power_flow(self):
+        """
+        Compute branch flows, voltage drops, and node voltages for all timesteps.
+        """
+        for t in range(self.T):
 
-        for ell in range(len(self.lines)):
+            # -------------------------
+            # Line quantities
+            # -------------------------
+            for (i, j) in self.lines:
+                # Branch power flow
+                p_ij = sum(self.P[h][t] for h in self.D(j))
+                self.p[(i, j, t)] = p_ij
 
-            (i, j) = self.lines[ell]
+                # Voltage drop
+                v_ij = self.beta[(i, j)] * p_ij
+                self.v[(i, j, t)] = v_ij
 
-            # line power flows = sum of downstream power injections at node j
-            self.p[ell] = sum(self.P[h] for h in self.D(j))
-
-            # line voltage drops
-            self.v[ell] = self.beta[ell] * self.p[ell]
-
-            # line current flows
-            self.i[ell] = self.v[ell] / (self.r[ell] + self.x[ell])
-
-        for i in self.nodes:
-
-            L = self.L(i)
-            for ell in range(len(L)):
-
-                (i,j) = L(ell)
-
-                # Nodal voltage magnitudes
-                self.V[i] = self.V0 - sum(self.v[ell])
+            # -------------------------
+            # Node voltages
+            # -------------------------
+            for i in self.nodes:
+                drops = sum(self.v[(k, j, t)] for (k, j) in self.L(i))
+                self.V[(i, t)] = self.V0 - drops
 
     def noisy_power_flow(self):
+        """
+        Compute power flow using noisy injections P_tilde.
+        """
+        for t in range(self.T):
 
-        for ell in range(len(self.lines)):
+            # -------------------------
+            # Line quantities
+            # -------------------------
+            for (i, j) in self.lines:
+                # Noisy branch power flow
+                p_ij = sum(self.P_tilde[(h, t)] for h in self.D(j))
+                self.p_tilde[(i, j, t)] = p_ij
 
-            (i, j) = self.lines[ell]
+                # Voltage drop
+                v_ij = self.beta[(i, j)] * p_ij
+                self.v_tilde[(i, j, t)] = v_ij
 
-            # line power flows = sum of downstream power injections at node j
-            self.p_tilde[ell] = sum(self.P_tilde[h] for h in self.D(j))
-
-            # line voltage drops
-            self.v_tilde[ell] = self.beta[ell] * self.p_tilde[ell]
-
-            # line current flows
-            self.i_tilde[ell] = self.v_tilde[ell] / (self.r[ell] + self.x[ell])
-
-        for i in self.nodes:
-
-            L = self.L(i)
-            for ell in range(len(L)):
-
-                (i,j) = L(ell)
-
-                # Nodal voltage magnitudes
-                self.V_tilde[i] = self.V0 - sum(self.v_tilde[ell])
+            # -------------------------
+            # Node voltages
+            # -------------------------
+            for i in self.nodes:
+                drops = sum(self.v_tilde[(k, j, t)] for (k, j) in self.L(i))
+                self.V_tilde[(i, t)] = self.V0 - drops
 
     # ------------------------------------------------------------------
     # Empirical Accuracy

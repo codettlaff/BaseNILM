@@ -39,6 +39,7 @@ class RadialNetwork:
         # -----------------------------
         self.r = {}
         self.x = {}
+        self.z = {}
         self.beta = {}
 
         for i, j, r_ij, x_ij in edges:
@@ -48,12 +49,14 @@ class RadialNetwork:
 
             self.r[(i, j)] = r_ij
             self.x[(i, j)] = x_ij
+            self.z[(i, j)] = r_ij + x_ij
             self.beta[(i, j)] = r_ij + self.alpha * x_ij
 
         # -----------------------------
         # Time-series results (initialized empty dicts)
         # -----------------------------
         self.p = {}  # {(i,j,t): P_ij(t)}
+        self.i = {} # {(i,j,t): i_ij(t)}
         self.V = {}  # {(i,t): V_i(t)}
         self.v = {}  # {(i,j,t): v_ij(t)}
 
@@ -64,6 +67,7 @@ class RadialNetwork:
         self.P_tilde = {}  # {(i,t): noisy nodal power}
 
         self.p_tilde = {}  # {(i,j,t): noisy branch flow}
+        self.i_tilde = {}  # {(i,j,t): i_ij(t)}
         self.V_tilde = {}  # {(i,t): noisy voltage}
         self.v_tilde = {}  # {(i,j,t): noisy voltage drop}
 
@@ -155,6 +159,10 @@ class RadialNetwork:
                 v_ij = self.beta[(i, j)] * p_ij
                 self.v[(i, j, t)] = v_ij
 
+                # Branch current flow
+                i_ij = v_ij / self.z[(i,j)]
+                self.i[(i,j)] = i_ij
+
             # -------------------------
             # Node voltages
             # -------------------------
@@ -180,6 +188,10 @@ class RadialNetwork:
                 v_ij = self.beta[(i, j)] * p_ij
                 self.v_tilde[(i, j, t)] = v_ij
 
+                # Branch current flow
+                i_ij = v_ij / self.z[(i, j)]
+                self.i_tilde[(i, j)] = i_ij
+
             # -------------------------
             # Node voltages
             # -------------------------
@@ -190,4 +202,7 @@ class RadialNetwork:
     # ------------------------------------------------------------------
     # Empirical Accuracy
     # ------------------------------------------------------------------
-    def compute_accuracy(self, e_p, T):
+    def compute_empirical_accuracy(self):
+
+        self.e_p = self.P_tilde - self.P
+        self.e_i = self.i_tilde - self.i

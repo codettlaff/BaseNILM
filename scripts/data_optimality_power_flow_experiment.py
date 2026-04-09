@@ -12,13 +12,16 @@ from power_flow import RadialNetwork
 # PARAMETERS
 # ============================================================
 EXPERIMENT_NAME = "data_optimality_power_flow"
-EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
+EPSILON_MIN = 50
+EPSILON_MAX = 1000
+N_EPSILON_VALUES = 10
+EPSILON_VALUES = np.linspace(EPSILON_MIN, EPSILON_MAX, N_EPSILON_VALUES)
 # EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
 NETWORK_NAME = "network"
 N_NODES = 6
 V0 = 12e3
 ROOT = 0
-T_set = 10 # Limit Timesteps
+T_set = 100 # Limit Timesteps
 
 ALPHA = 0.0
 R = 0.01

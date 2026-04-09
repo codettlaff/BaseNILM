@@ -158,7 +158,7 @@ class RadialNetwork:
         """
         for t in range(self.T):
             for i in self.nodes:
-                var = 8 * self.B[i][t] / (self.epsilon ** 2)
+                var = 8 * self.B[i][t]**2 / (self.epsilon ** 2)
                 b = np.sqrt(var / 2)
 
                 noise = np.random.laplace(0, b)

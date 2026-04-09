@@ -133,7 +133,8 @@ def setup():
 
     return P, B, T
 
-def plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp):
+def plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp,
+                             plot_title, save_plot=False, save_folderpath=None):
 
     plt.figure()
 
@@ -143,10 +144,26 @@ def plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp):
 
     plt.xlabel("Epsilon (Privacy Parameter)")
     plt.ylabel("Accuracy")
-    plt.title("Accuracy vs Epsilon")
+    plt.title(plot_title)
 
     plt.legend()
     plt.grid()
+
+    # ============================================================
+    # SAVE PLOT
+    # ============================================================
+    if save_plot:
+        if save_folderpath is None:
+            save_folderpath = "."
+
+        os.makedirs(save_folderpath, exist_ok=True)
+
+        # Clean filename (remove spaces, etc.)
+        filename = plot_title.replace(" ", "_").replace("/", "_")
+        filepath = os.path.join(save_folderpath, f"{filename}.png")
+
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved to: {filepath}")
 
     plt.show()
 
@@ -180,7 +197,7 @@ if __name__ == "__main__":
         acc_p_th_exp.append(network.acc_p_th_exp)
         acc_p_emp.append(acc_p_emp_epsilon)
 
-    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp)
+    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp, "Power Flow Accuracy Versus Epsilon")
 
     print('')
 

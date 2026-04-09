@@ -43,6 +43,7 @@ class RadialNetwork:
         self.x = {}
         self.z = {}
         self.beta = {}
+        self.c = {}
 
         for i, j, r_ij, x_ij in edges:
             self.children[i].append(j)
@@ -51,10 +52,16 @@ class RadialNetwork:
 
             self.r[(i, j)] = r_ij
             self.x[(i, j)] = x_ij
-            self.z[(i, j)] = r_ij + x_ij
-            self.beta[(i, j)] = r_ij + self.alpha * x_ij
 
-        # -----------------------------
+            z_ij = r_ij + x_ij
+            beta_ij = r_ij + self.alpha * x_ij
+            c_ij = beta_ij / z_ij
+
+            self.z[(i, j)] = z_ij
+            self.beta[(i, j)] = beta_ij
+            self.c[(i, j)] = c_ij
+
+            # -----------------------------
         # Time-series results (initialized empty dicts)
         # -----------------------------
         self.p = {}  # {(i,j,t): P_ij(t)}
@@ -72,6 +79,20 @@ class RadialNetwork:
         self.i_tilde = {}  # {(i,j,t): i_ij(t)}
         self.V_tilde = {}  # {(i,t): noisy voltage}
         self.v_tilde = {}  # {(i,j,t): noisy voltage drop}
+
+        # -----------------------------
+        # Theoretical Results
+        # -----------------------------
+        self.sigma_p_th = {} # {(i,j): branch power flow variance}
+        self.sigma_i_th = {} # {(i,j): branch current flow variance}
+        self.sigma_V_th = {} # {i: node voltage variance}
+
+        self.acc_p_th_bound = 0
+        self.acc_i_th_bound = 0
+        self.acc_V_th_bound = 0
+        self.acc_p_th_exp = 0
+        self.acc_i_th_exp = 0
+        self.acc_V_th_exp = 0
 
         # -----------------------------
         # Errors
@@ -204,6 +225,69 @@ class RadialNetwork:
             for i in self.nodes:
                 drops = sum(self.v_tilde[(k, j, t)] for (k, j) in self.L(i))
                 self.V_tilde[(i, t)] = self.V0 - drops
+
+    # ------------------------------------------------------------------
+    # Theoretical Accuracy
+    # ------------------------------------------------------------------
+    def compute_theoretical_accuracy(self):
+
+        acc_p_bound_num = 0
+        acc_p_bound_den = 0
+        acc_i_bound_num = 0
+        acc_i_bound_den = 0
+
+        for t in range(self.T):
+            for (i,j) in self.lines:
+
+                sigma_p_sq = sum(8 * (self.B[(h,t)] ** 2) / (self.epsilon ** 2) for h in self.D(i))
+                sigma_i_sq = self.c[(i,j)] * sigma_p_sq
+
+                sigma_p = np.sqrt(sigma_p_sq)
+                sigma_i = np.sqrt(sigma_i_sq)
+
+                acc_p_bound_num += sigma_p
+                acc_i_bound_num += sigma_i
+
+                acc_p_bound_den += self.p[(i,j)]
+                acc_i_bound_den += self.i[(i,j)]
+
+        acc_p_bound_den = acc_p_bound_den * 2
+        acc_i_bound_den = acc_i_bound_den * 2
+
+        acc_p_bound = acc_p_bound_num / acc_p_bound_den
+        acc_i_bound = acc_i_bound_num / acc_i_bound_den
+
+        acc_p_exp = acc_p_bound * np.sqrt(2/np.pi)
+        acc_i_exp = acc_i_bound * np.sqrt(2/np.pi)
+
+        acc_V_bound_num = 0
+        acc_V_bound_den = 0
+
+        for t in range(self.T):
+            for i in self.nodes:
+                self.sigma_V = (4 / self.epsilon) * np.sqrt(
+                    sum(
+                        self.beta[(k, j)] * (self.B[h][t] ** 2)
+                        for (k, j) in self.L(i)
+                        for h in self.D(j)
+                    )
+                )
+
+                acc_V_bound_num += self.sigma_V
+                acc_V_bound_den += self.V[(i,j)]
+
+        acc_V_bound_den = acc_V_bound_den * 2
+
+        acc_V_bound = acc_V_bound_num / acc_V_bound_den
+        acc_V_exp = acc_V_bound * np.sqrt(2/np.pi)
+
+        self.acc_p_th_bound = acc_p_bound
+        self.acc_i_th_bound = acc_i_bound
+        self.acc_V_th_bound = acc_V_bound
+        self.acc_p_th_exp = acc_p_exp
+        self.acc_i_th_exp = acc_i_exp
+        self.acc_V_th_exp = acc_V_exp
+
 
     # ------------------------------------------------------------------
     # Empirical Accuracy

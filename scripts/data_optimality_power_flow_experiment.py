@@ -1,11 +1,8 @@
 import os
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
 import matplotlib.pyplot as plt
 
 from data.loadData import load_data, process_data
-from differential_privacy import differential_privacy
 from power_flow import RadialNetwork
 
 # ============================================================
@@ -133,21 +130,28 @@ def setup():
 
     return P, B, T
 
-def plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp,
-                             plot_title, save_plot=False, save_folderpath=None):
+def plot_accuracy_vs_epsilon(acc_th_bound, acc_th_exp, acc_emp,
+                             plot_title, plot_logarithmic=False,
+                             display_plot=False, save_plot=False, save_folderpath=None):
 
     plt.figure()
 
-    plt.plot(EPSILON_VALUES, acc_p_th_bound, marker='o', label='Theoretical Bound')
-    plt.plot(EPSILON_VALUES, acc_p_th_exp, marker='s', label='Theoretical Expected')
-    plt.plot(EPSILON_VALUES, acc_p_emp, marker='^', label='Empirical')
+    plt.plot(EPSILON_VALUES, acc_th_bound, marker='o', label='Theoretical Bound')
+    plt.plot(EPSILON_VALUES, acc_th_exp, marker='s', label='Theoretical Expected')
+    plt.plot(EPSILON_VALUES, acc_emp, marker='^', label='Empirical')
+
+    # ============================================================
+    # LOG SCALE OPTION
+    # ============================================================
+    if plot_logarithmic:
+        plt.xscale('log')
 
     plt.xlabel("Epsilon (Privacy Parameter)")
     plt.ylabel("Accuracy")
     plt.title(plot_title)
 
     plt.legend()
-    plt.grid()
+    plt.grid(which='both', linestyle='--', linewidth=0.5)
 
     # ============================================================
     # SAVE PLOT
@@ -158,38 +162,57 @@ def plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp,
 
         os.makedirs(save_folderpath, exist_ok=True)
 
-        # Clean filename (remove spaces, etc.)
         filename = plot_title.replace(" ", "_").replace("/", "_")
+        if plot_logarithmic:
+            filename += "_log"
+
         filepath = os.path.join(save_folderpath, f"{filename}.png")
 
         plt.savefig(filepath, dpi=300, bbox_inches='tight')
         print(f"Plot saved to: {filepath}")
 
-    plt.show()
+    if display_plot:
+        plt.show()
+    else:
+        plt.close()
 
-if __name__ == "__main__":
+def experiment():
 
     P, B, T = setup()
     network = build_radial_network(N_NODES, P, B)
     network.power_flow()
-    network.power_flow_results(t=2,display_results=True)
 
     network.do_differential_privacy = True
+
     acc_p_th_bound = []
     acc_p_th_exp = []
     acc_p_emp = []
+
+    acc_i_th_bound = []
+    acc_i_th_exp = []
+    acc_i_emp = []
+
+    acc_v_th_bound = []
+    acc_v_th_exp = []
+    acc_v_emp = []
 
     for epsilon in EPSILON_VALUES:
 
         network.epsilon = epsilon
 
         acc_p_emp_epsilon = 0.0
+        acc_i_emp_epsilon = 0.0
+        acc_v_emp_epsilon = 0.0
         for n in range(N_TRIALS):
             network.differential_privacy()
             network.noisy_power_flow()
             network.compute_empirical_accuracy()
             acc_p_emp_epsilon += network.acc_p
+            acc_i_emp_epsilon += network.acc_i
+            acc_v_emp_epsilon += network.acc_v
         acc_p_emp_epsilon = acc_p_emp_epsilon / N_TRIALS
+        acc_i_emp_epsilon = acc_i_emp_epsilon / N_TRIALS
+        acc_v_emp_epsilon = acc_v_emp_epsilon / N_TRIALS
 
         network.compute_theoretical_accuracy()
 
@@ -197,8 +220,25 @@ if __name__ == "__main__":
         acc_p_th_exp.append(network.acc_p_th_exp)
         acc_p_emp.append(acc_p_emp_epsilon)
 
-    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp, "Power Flow Accuracy Versus Epsilon")
+        acc_i_th_bound.append(network.acc_i_th_bound)
+        acc_i_th_exp.append(network.acc_i_th_exp)
+        acc_i_emp.append(acc_i_emp_epsilon)
+
+        acc_v_th_bound.append(network.acc_V_th_bound)
+        acc_v_th_exp.append(network.acc_V_th_exp)
+        acc_v_emp.append(acc_v_emp_epsilon)
+
+    results_folderpath = get_paths()["experiment_results"]
+    if not os.path.exists(results_folderpath): os.makedirs(results_folderpath)
+
+    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp, "Power Flow Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True)
+    plot_accuracy_vs_epsilon(acc_i_th_bound, acc_i_th_exp, acc_i_emp, "Current Flow Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True)
+    plot_accuracy_vs_epsilon(acc_v_th_bound, acc_v_th_exp, acc_v_emp, "Node Voltage Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True)
 
     print('')
+
+if __name__ == "__main__":
+
+    experiment()
 
 

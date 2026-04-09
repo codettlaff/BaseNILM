@@ -17,10 +17,11 @@ EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
 EPSILON_VALUES = [0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
 # EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
 N_NODES = 6
-V0 = 12.47e3
+V0 = 12e3
 ROOT = 0
 T_set = 10 # Limit Timesteps
 
+ALPHA = 0.0
 R = 0.01
 X = 0.01
 
@@ -54,7 +55,7 @@ def trim_data(data, T_new):
 # ============================================================
 # NETWORK CONSTRUCTION
 # ============================================================
-def build_radial_network(n_nodes, V0, P, B, root=0, alpha=1.0, epsilon=None):
+def build_radial_network(n_nodes, P, B):
     """
     Build a simple radial (chain) network.
 
@@ -101,11 +102,7 @@ def build_radial_network(n_nodes, V0, P, B, root=0, alpha=1.0, epsilon=None):
     # -----------------------------
     return RadialNetwork(
         nodes=nodes,
-        edges=edges,
-        root=root,
-        V0=V0,
-        alpha=alpha,
-        epsilon=epsilon
+        edges=edges
     )
 
 def setup():
@@ -134,6 +131,8 @@ def setup():
 if __name__ == "__main__":
 
     P, B, T = setup()
+    network = build_radial_network(N_NODES, P, B)
+    network.power_flow()
 
-    network_dict = build_radial_network(N_NODES, V0, P, B)
+
 

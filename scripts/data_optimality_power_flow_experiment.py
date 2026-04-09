@@ -24,6 +24,8 @@ ALPHA = 0.0
 R = 0.01
 X = 0.01
 
+N_TRIALS = 10 # Number of Times Noise is Sampled per Epsilon
+
 # -----------------------------
 # Path Utilities (reuse style)
 # -----------------------------
@@ -160,15 +162,20 @@ if __name__ == "__main__":
     for epsilon in EPSILON_VALUES:
 
         network.epsilon = epsilon
-        network.differential_privacy()
-        network.noisy_power_flow()
+
+        acc_p_emp_epsilon = 0.0
+        for n in range(N_TRIALS):
+            network.differential_privacy()
+            network.noisy_power_flow()
+            network.compute_empirical_accuracy()
+            acc_p_emp_epsilon += network.acc_p
+        acc_p_emp_epsilon = acc_p_emp_epsilon / N_TRIALS
 
         network.compute_theoretical_accuracy()
-        network.compute_empirical_accuracy()
 
         acc_p_th_bound.append(network.acc_p_th_bound)
         acc_p_th_exp.append(network.acc_p_th_exp)
-        acc_p_emp.append(network.acc_p)
+        acc_p_emp.append(acc_p_emp_epsilon)
 
     plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp)
 

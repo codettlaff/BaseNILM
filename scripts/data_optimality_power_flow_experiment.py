@@ -231,9 +231,9 @@ def experiment():
     results_folderpath = get_paths()["experiment_results"]
     if not os.path.exists(results_folderpath): os.makedirs(results_folderpath)
 
-    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp, "Power Flow Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True)
-    plot_accuracy_vs_epsilon(acc_i_th_bound, acc_i_th_exp, acc_i_emp, "Current Flow Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True)
-    plot_accuracy_vs_epsilon(acc_v_th_bound, acc_v_th_exp, acc_v_emp, "Node Voltage Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True)
+    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp, "Power Flow Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True, save_folderpath=results_folderpath)
+    plot_accuracy_vs_epsilon(acc_i_th_bound, acc_i_th_exp, acc_i_emp, "Current Flow Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True, save_folderpath=results_folderpath)
+    plot_accuracy_vs_epsilon(acc_v_th_bound, acc_v_th_exp, acc_v_emp, "Node Voltage Accuracy Versus Epsilon", plot_logarithmic=True, save_plot=True, save_folderpath=results_folderpath)
 
     print('')
 

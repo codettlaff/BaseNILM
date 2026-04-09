@@ -258,8 +258,8 @@ class RadialNetwork:
         acc_p_bound = 1 - acc_p_bound_num / acc_p_bound_den
         acc_i_bound = 1 - acc_i_bound_num / acc_i_bound_den
 
-        acc_p_exp = 1 - acc_p_bound * np.sqrt(2/np.pi)
-        acc_i_exp = 1 - acc_i_bound * np.sqrt(2/np.pi)
+        acc_p_exp = 1 - np.sqrt(2/np.pi) * acc_p_bound_num / acc_p_bound_den
+        acc_i_exp = 1 - np.sqrt(2/np.pi) * acc_i_bound_num / acc_i_bound_den
 
         acc_V_bound_num = 0
         acc_V_bound_den = 0
@@ -280,7 +280,7 @@ class RadialNetwork:
         acc_V_bound_den = acc_V_bound_den * 2
 
         acc_V_bound = 1 - acc_V_bound_num / acc_V_bound_den
-        acc_V_exp = 1 - acc_V_bound * np.sqrt(2/np.pi)
+        acc_V_exp = 1 - np.sqrt(2/np.pi) * acc_V_bound_num / acc_V_bound_den
 
         self.acc_p_th_bound = acc_p_bound
         self.acc_i_th_bound = acc_i_bound

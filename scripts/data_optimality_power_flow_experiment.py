@@ -104,7 +104,8 @@ def build_radial_network(n_nodes, P, B):
     return RadialNetwork(
         name=NETWORK_NAME,
         nodes=nodes,
-        edges=edges
+        edges=edges,
+        V0=V0
     )
 
 def setup():
@@ -135,6 +136,14 @@ if __name__ == "__main__":
     P, B, T = setup()
     network = build_radial_network(N_NODES, P, B)
     network.power_flow()
+
     network.power_flow_results(t=2,display_results=True)
+
+    network.do_differential_privacy = True
+    network.epsilon = 1
+    network.differential_privacy()
+    network.noisy_power_flow()
+
+    network.compute_empirical_accuracy()
 
 

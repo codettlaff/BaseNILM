@@ -144,6 +144,12 @@ if __name__ == "__main__":
     network.differential_privacy()
     network.noisy_power_flow()
 
+    network.compute_theoretical_accuracy()
     network.compute_empirical_accuracy()
+
+    acc_p_th = network.acc_p_th_exp
+    acc_p_emp = network.acc_p
+
+    print('')
 
 

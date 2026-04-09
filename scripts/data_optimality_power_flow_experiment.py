@@ -8,13 +8,11 @@ from data.loadData import load_data, process_data
 from differential_privacy import differential_privacy
 from power_flow import RadialNetwork
 
-
 # ============================================================
 # PARAMETERS
 # ============================================================
 EXPERIMENT_NAME = "data_optimality_power_flow"
 EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
-EPSILON_VALUES = [0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
 # EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
 NETWORK_NAME = "network"
 N_NODES = 6
@@ -130,25 +128,49 @@ def setup():
 
     return P, B, T
 
+def plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp):
+
+    plt.figure()
+
+    plt.plot(EPSILON_VALUES, acc_p_th_bound, marker='o', label='Theoretical Bound')
+    plt.plot(EPSILON_VALUES, acc_p_th_exp, marker='s', label='Theoretical Expected')
+    plt.plot(EPSILON_VALUES, acc_p_emp, marker='^', label='Empirical')
+
+    plt.xlabel("Epsilon (Privacy Parameter)")
+    plt.ylabel("Accuracy")
+    plt.title("Accuracy vs Epsilon")
+
+    plt.legend()
+    plt.grid()
+
+    plt.show()
 
 if __name__ == "__main__":
 
     P, B, T = setup()
     network = build_radial_network(N_NODES, P, B)
     network.power_flow()
-
     network.power_flow_results(t=2,display_results=True)
 
     network.do_differential_privacy = True
-    network.epsilon = 0.1
-    network.differential_privacy()
-    network.noisy_power_flow()
+    acc_p_th_bound = []
+    acc_p_th_exp = []
+    acc_p_emp = []
 
-    network.compute_theoretical_accuracy()
-    network.compute_empirical_accuracy()
+    for epsilon in EPSILON_VALUES:
 
-    acc_p_th = network.acc_p_th_exp
-    acc_p_emp = network.acc_p
+        network.epsilon = epsilon
+        network.differential_privacy()
+        network.noisy_power_flow()
+
+        network.compute_theoretical_accuracy()
+        network.compute_empirical_accuracy()
+
+        acc_p_th_bound.append(network.acc_p_th_bound)
+        acc_p_th_exp.append(network.acc_p_th_exp)
+        acc_p_emp.append(network.acc_p)
+
+    plot_accuracy_vs_epsilon(acc_p_th_bound, acc_p_th_exp, acc_p_emp)
 
     print('')
 

@@ -263,7 +263,7 @@ class RadialNetwork:
 
         for t in range(self.T):
             for i in self.nodes:
-                self.sigma_V = (4 / self.epsilon) * np.sqrt(
+                self.sigma_V[(i,t)] = (4 / self.epsilon) * np.sqrt(
                     sum(
                         self.beta[(k, j)] * (self.B[h][t] ** 2)
                         for (k, j) in self.L(i)

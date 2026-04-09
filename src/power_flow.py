@@ -1,6 +1,4 @@
 import numpy as np
-from tensorflow.python.autograph.utils.tensors import is_dense_tensor
-
 
 class RadialNetwork:
     def __init__(self, nodes, edges, root=0, V0=1.0, alpha=1.0, epsilon=None):
@@ -188,7 +186,7 @@ class RadialNetwork:
 
                 # Branch current flow
                 i_ij = v_ij / self.z[(i,j)]
-                self.i[(i,j)] = i_ij
+                self.i[(i,j,t)] = i_ij
 
             # -------------------------
             # Node voltages
@@ -239,7 +237,7 @@ class RadialNetwork:
         for t in range(self.T):
             for (i,j) in self.lines:
 
-                sigma_p_sq = sum(8 * (self.B[(h,t)] ** 2) / (self.epsilon ** 2) for h in self.D(i))
+                sigma_p_sq = sum(8 * (self.B[h][t] ** 2) / (self.epsilon ** 2) for h in self.D(j))
                 sigma_i_sq = self.c[(i,j)] * sigma_p_sq
 
                 sigma_p = np.sqrt(sigma_p_sq)
@@ -248,8 +246,8 @@ class RadialNetwork:
                 acc_p_bound_num += sigma_p
                 acc_i_bound_num += sigma_i
 
-                acc_p_bound_den += self.p[(i,j)]
-                acc_i_bound_den += self.i[(i,j)]
+                acc_p_bound_den += self.p[(i,j,t)]
+                acc_i_bound_den += self.i[(i,j,t)]
 
         acc_p_bound_den = acc_p_bound_den * 2
         acc_i_bound_den = acc_i_bound_den * 2
@@ -274,7 +272,7 @@ class RadialNetwork:
                 )
 
                 acc_V_bound_num += self.sigma_V
-                acc_V_bound_den += self.V[(i,j)]
+                acc_V_bound_den += self.V[(i,t)]
 
         acc_V_bound_den = acc_V_bound_den * 2
 
@@ -299,7 +297,7 @@ class RadialNetwork:
         i_num = 0
         i_den = 0
 
-        for t in range(len(self.T)):
+        for t in range(self.T):
             for (i,j) in self.lines:
 
                 self.e_p[(i,j,t)] = np.abs(self.p_tilde[(i,j,t)] - self.p[(i,j,t)])
@@ -320,15 +318,21 @@ class RadialNetwork:
         V_num = 0
         V_dem = 0
 
-        for t in range(len(self.T)):
+        for t in range(self.T):
             for i in self.nodes:
 
-                self.e_V = np.abs(self.V_tilde[(i, t)] - self.V[(i, t)])
+                self.e_V[(i,t)] = np.abs(self.V_tilde[(i, t)] - self.V[(i, t)])
 
                 V_num += np.sqrt(self.e_V)
                 V_dem += self.V[(i, t)]
 
         V_dem = 2 * V_dem
         self.acc_v = 1 - V_num / V_dem
+
+    # ------------------------------------------------------------------
+    # Plots
+    # ------------------------------------------------------------------
+
+    def plot_empirical_accuracy(self):
 
 

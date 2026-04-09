@@ -16,6 +16,7 @@ EXPERIMENT_NAME = "data_optimality_power_flow"
 EPSILON_VALUES = [50, 75, 80, 90, 95, 100, 150, 200, 250, 500, 750, 1000]
 EPSILON_VALUES = [0.2,0.3,0.4,0.5,0.6,0.7,0.8,0.9,1]
 # EPSILON_VALUES = [75, 100, 500, 1000] # For Testing
+NETWORK_NAME = "network"
 N_NODES = 6
 V0 = 12e3
 ROOT = 0
@@ -101,6 +102,7 @@ def build_radial_network(n_nodes, P, B):
     # Build network
     # -----------------------------
     return RadialNetwork(
+        name=NETWORK_NAME,
         nodes=nodes,
         edges=edges
     )
@@ -133,6 +135,6 @@ if __name__ == "__main__":
     P, B, T = setup()
     network = build_radial_network(N_NODES, P, B)
     network.power_flow()
-
+    network.power_flow_results(t=2,display_results=True)
 
 

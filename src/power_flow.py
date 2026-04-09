@@ -1,7 +1,8 @@
 import numpy as np
+import pandas as pd
 
 class RadialNetwork:
-    def __init__(self, nodes, edges, root=0, V0=1.0, alpha=0.0, epsilon=None):
+    def __init__(self, name, nodes, edges, root=0, V0=1.0, alpha=0.0, epsilon=None):
         """
         nodes : dict {i: {"P": [P_i(t)], "B": [B_i(t)]}}
         edges : list of (i, j, r_ij, x_ij)
@@ -9,6 +10,8 @@ class RadialNetwork:
         V0    : root node voltage
         alpha : constant power factor parameter (Q_i = alpha P_i)
         """
+
+        self.name = name
 
         # -----------------------------
         # Time Series
@@ -59,7 +62,7 @@ class RadialNetwork:
             self.beta[(i, j)] = beta_ij
             self.c[(i, j)] = c_ij
 
-            # -----------------------------
+        # -----------------------------
         # Time-series results (initialized empty dicts)
         # -----------------------------
         self.p = {}  # {(i,j,t): P_ij(t)}
@@ -329,4 +332,59 @@ class RadialNetwork:
         V_dem = 2 * V_dem
         self.acc_v = 1 - V_num / V_dem
 
+    # ------------------------------------------------------------------
+    # Display Power Flow Results
+    # ------------------------------------------------------------------
+    def power_flow_results(self, t=0, return_results=False, display_results=False, write_csv=False, results_folderpath=None):
 
+        # ============================================================
+        # NODE TABLE
+        # ============================================================
+        node_data = []
+        for i in self.nodes:
+            node_data.append({
+                "node": i,
+                "V": self.V.get((i, t), None),
+                "P_injection": self.P[i][t]
+            })
+
+        df_nodes = pd.DataFrame(node_data).sort_values(by="node")
+
+        # ============================================================
+        # LINE TABLE
+        # ============================================================
+        line_data = []
+        for (i, j) in self.lines:
+            line_data.append({
+                "from": i,
+                "to": j,
+                "r": self.r[(i, j)],
+                "x": self.x[(i, j)],
+                "p_flow": self.p.get((i, j, t), None),
+                "i_flow": self.i.get((i, j, t), None),
+                "v_drop": self.v.get((i, j, t), None),
+            })
+
+        df_lines = pd.DataFrame(line_data).sort_values(by=["from", "to"])
+
+        # ============================================================
+        # DISPLAY
+        # ============================================================
+        if display_results:
+            print("\n=== NODE STATES (t={}) ===".format(t))
+            print(df_nodes.to_string(index=False))
+
+            print("\n=== LINE STATES (t={}) ===".format(t))
+            print(df_lines.to_string(index=False))
+
+        # ============================================================
+        # SAVE TO CSV
+        # ============================================================
+
+        if write_csv:
+            nodes_csv_filepath = results_folderpath + f"{self.name}_nodes_t{t}.csv"
+            lines_csv_filepath = results_folderpath + f"{self.name}_lines_t{t}.csv"
+            df_nodes.to_csv(nodes_csv_filepath)
+            df_lines.to_csv(lines_csv_filepath)
+
+        if return_results: return df_nodes, df_lines

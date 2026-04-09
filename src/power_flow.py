@@ -215,7 +215,7 @@ class RadialNetwork:
 
                 # Branch current flow
                 i_ij = v_ij / self.z[(i, j)]
-                self.i_tilde[(i, j)] = i_ij
+                self.i_tilde[(i, j, t)] = i_ij
 
             # -------------------------
             # Node voltages
@@ -323,7 +323,7 @@ class RadialNetwork:
 
                 self.e_V[(i,t)] = np.abs(self.V_tilde[(i, t)] - self.V[(i, t)])
 
-                V_num += np.sqrt(self.e_V)
+                V_num += np.sqrt(self.e_V[(i,t)])
                 V_dem += self.V[(i, t)]
 
         V_dem = 2 * V_dem

@@ -21,6 +21,9 @@ V0 = 12.47e3
 ROOT = 0
 T_set = 10 # Limit Timesteps
 
+R = 0.01
+X = 0.01
+
 # -----------------------------
 # Path Utilities (reuse style)
 # -----------------------------
@@ -41,6 +44,12 @@ def get_redd_files(redd_path):
         for f in os.listdir(redd_path)
         if f.endswith(".mat") and "HF" not in f
     ]
+
+def trim_data(data, T_new):
+    data_trimmed = {}
+    data_trimmed['Y'] = data['Y'][:T_new]
+    data_trimmed['X'] = data['X'][:T_new]
+    return data_trimmed
 
 # ============================================================
 # NETWORK CONSTRUCTION
@@ -83,8 +92,8 @@ def build_radial_network(n_nodes, V0, P, B, root=0, alpha=1.0, epsilon=None):
     # -----------------------------
     edges = []
     for i in range(n_nodes - 1):
-        r = 0.01
-        x = 0.01
+        r = R
+        x = X
         edges.append((i, i + 1, r, x))
 
     # -----------------------------
@@ -98,3 +107,33 @@ def build_radial_network(n_nodes, V0, P, B, root=0, alpha=1.0, epsilon=None):
         alpha=alpha,
         epsilon=epsilon
     )
+
+def setup():
+    paths = get_paths()
+    results_folder = paths["experiment_results"]
+    if not os.path.exists(results_folder):
+        os.makedirs(results_folder)
+
+    redd_files = get_redd_files(paths["redd"])
+    data = process_data(load_data(redd_files[0]), "redd")
+
+    if T_set: data = trim_data(data, T_set)
+
+    p_agg = data['Y']
+    p_apps = data['X']
+    T = p_agg.shape[0]
+
+    P = np.tile(p_agg, (N_NODES, 1))
+
+    B_i = np.max(p_apps, axis=1)
+    B =  np.tile(B_i, (N_NODES, 1))
+
+    return P, B, T
+
+
+if __name__ == "__main__":
+
+    P, B, T = setup()
+
+    network_dict = build_radial_network(N_NODES, V0, P, B)
+

@@ -1,7 +1,7 @@
 import numpy as np
 
 class RadialNetwork:
-    def __init__(self, nodes, edges, root=0, V0=1.0, alpha=1.0, epsilon=None):
+    def __init__(self, nodes, edges, root=0, V0=1.0, alpha=0.0, epsilon=None):
         """
         nodes : dict {i: {"P": [P_i(t)], "B": [B_i(t)]}}
         edges : list of (i, j, r_ij, x_ij)

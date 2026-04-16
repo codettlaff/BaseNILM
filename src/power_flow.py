@@ -102,6 +102,11 @@ class RadialNetwork:
         self.e_p = {}  # {(i,j,t): power error}
         self.e_V = {}  # {(i,t): voltage error}
 
+        # Normalized Error
+        self.e_i_norm = {}  # {(i,j,t): current error}
+        self.e_p_norm = {}  # {(i,j,t): power error}
+        self.e_V_norm = {}  # {(i,t): voltage error}
+
         self.acc_p = 0
         self.acc_i = 0
         self.acc_v = 0
@@ -289,10 +294,10 @@ class RadialNetwork:
         self.acc_i_th_exp = acc_i_exp
         self.acc_V_th_exp = acc_V_exp
 
-
     # ------------------------------------------------------------------
     # Empirical Accuracy
     # ------------------------------------------------------------------
+    # To change - also get normalized errors
     def compute_empirical_accuracy(self):
 
         p_num = 0
@@ -303,8 +308,16 @@ class RadialNetwork:
         for t in range(self.T):
             for (i,j) in self.lines:
 
+                # Absolute errors
                 self.e_p[(i,j,t)] = np.abs(self.p_tilde[(i,j,t)] - self.p[(i,j,t)])
                 self.e_i[(i,j,t)] = np.abs(self.i_tilde[(i,j,t)] - self.i[(i,j,t)])
+
+                # Normalized errors
+                denom_p = 2 * np.abs(self.p[(i, j, t)])
+                denom_i = 2 * np.abs(self.i[(i, j, t)])
+
+                self.e_p_norm[(i, j, t)] = self.e_p[(i, j, t)] / denom_p if denom_p != 0 else 0
+                self.e_i_norm[(i, j, t)] = self.e_i[(i, j, t)] / denom_i if denom_i != 0 else 0
 
                 p_num += np.sqrt(self.e_p[(i,j,t)])
                 p_den += self.p[(i,j,t)]
@@ -324,7 +337,12 @@ class RadialNetwork:
         for t in range(self.T):
             for i in self.nodes:
 
+                # Absolute errors
                 self.e_V[(i,t)] = np.abs(self.V_tilde[(i, t)] - self.V[(i, t)])
+
+                # Normalized error
+                denom_V = 2 * np.abs(self.V[(i, t)])
+                self.e_V_norm[(i, t)] = self.e_V[(i, t)] / denom_V if denom_V != 0 else 0
 
                 V_num += np.sqrt(self.e_V[(i,t)])
                 V_dem += self.V[(i, t)]

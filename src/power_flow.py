@@ -88,6 +88,11 @@ class RadialNetwork:
         self.sigma_i_th = {} # {(i,j): branch current flow variance}
         self.sigma_V_th = {} # {i: node voltage variance}
 
+        # Expected Error
+        self.e_i_exp = {}  # {(i,j,t): current error}
+        self.e_p_exp = {}  # {(i,j,t): power error}
+        self.e_V_exp = {}  # {(i,t): voltage error}
+
         self.acc_p_th_bound = 0
         self.acc_i_th_bound = 0
         self.acc_V_th_bound = 0
@@ -243,35 +248,48 @@ class RadialNetwork:
         acc_i_bound_den = 0
 
         for t in range(self.T):
-            for (i,j) in self.lines:
-
+            for (i, j) in self.lines:
+                # Variances
                 sigma_p_sq = sum(8 * (self.B[h][t] ** 2) / (self.epsilon ** 2) for h in self.D(j))
-                sigma_i_sq = self.c[(i,j)] * sigma_p_sq
+                sigma_i_sq = self.c[(i, j)] * sigma_p_sq
 
                 sigma_p = np.sqrt(sigma_p_sq)
                 sigma_i = np.sqrt(sigma_i_sq)
 
+                # Store sigmas
+                self.sigma_p_th[(i, j, t)] = sigma_p
+                self.sigma_i_th[(i, j, t)] = sigma_i
+
+                # Expected absolute error (Gaussian)
+                e_exp_p = np.sqrt(2 / np.pi) * sigma_p
+                e_exp_i = np.sqrt(2 / np.pi) * sigma_i
+
+                # Store expected errors
+                self.e_p_exp[(i, j, t)] = e_exp_p
+                self.e_i_exp[(i, j, t)] = e_exp_i
+
+                # Accumulate bounds
                 acc_p_bound_num += sigma_p
                 acc_i_bound_num += sigma_i
 
-                acc_p_bound_den += self.p[(i,j,t)]
-                acc_i_bound_den += self.i[(i,j,t)]
+                acc_p_bound_den += self.p[(i, j, t)]
+                acc_i_bound_den += self.i[(i, j, t)]
 
-        acc_p_bound_den = acc_p_bound_den * 2
-        acc_i_bound_den = acc_i_bound_den * 2
+        acc_p_bound_den *= 2
+        acc_i_bound_den *= 2
 
         acc_p_bound = 1 - acc_p_bound_num / acc_p_bound_den
         acc_i_bound = 1 - acc_i_bound_num / acc_i_bound_den
 
-        acc_p_exp = 1 - np.sqrt(2/np.pi) * acc_p_bound_num / acc_p_bound_den
-        acc_i_exp = 1 - np.sqrt(2/np.pi) * acc_i_bound_num / acc_i_bound_den
+        acc_p_exp = 1 - np.sqrt(2 / np.pi) * acc_p_bound_num / acc_p_bound_den
+        acc_i_exp = 1 - np.sqrt(2 / np.pi) * acc_i_bound_num / acc_i_bound_den
 
         acc_V_bound_num = 0
         acc_V_bound_den = 0
 
         for t in range(self.T):
             for i in self.nodes:
-                self.sigma_V_th[(i,t)] = (4 / self.epsilon) * np.sqrt(
+                sigma_v = (4 / self.epsilon) * np.sqrt(
                     sum(
                         self.beta[(k, j)] * (self.B[h][t] ** 2)
                         for (k, j) in self.L(i)
@@ -279,13 +297,23 @@ class RadialNetwork:
                     )
                 )
 
-                acc_V_bound_num += self.sigma_V_th[(i,t)]
-                acc_V_bound_den += self.V[(i,t)]
+                # Store sigma
+                self.sigma_V_th[(i, t)] = sigma_v
 
-        acc_V_bound_den = acc_V_bound_den * 2
+                # Expected error
+                e_exp_v = np.sqrt(2 / np.pi) * sigma_v
+
+                # Store expected error
+                self.e_V_exp[(i, t)] = e_exp_v
+
+                # Accumulate bounds
+                acc_V_bound_num += sigma_v
+                acc_V_bound_den += self.V[(i, t)]
+
+        acc_V_bound_den *= 2
 
         acc_V_bound = 1 - acc_V_bound_num / acc_V_bound_den
-        acc_V_exp = 1 - np.sqrt(2/np.pi) * acc_V_bound_num / acc_V_bound_den
+        acc_V_exp = 1 - np.sqrt(2 / np.pi) * acc_V_bound_num / acc_V_bound_den
 
         self.acc_p_th_bound = acc_p_bound
         self.acc_i_th_bound = acc_i_bound

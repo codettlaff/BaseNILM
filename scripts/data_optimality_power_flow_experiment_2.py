@@ -120,7 +120,7 @@ def plot_accuracy(eps, th_bound, th_exp, emp, title, save_path=None):
     plt.figure()
 
     plt.plot(eps, th_bound, 'o-', label="Bound")
-    plt.plot(eps, th_exp, 's-', label="Expected")
+    plt.plot(eps, th_exp, 's-', label="Theoretical")
     plt.plot(eps, emp, '^-', label="Empirical")
 
     plt.xscale('log')
@@ -138,7 +138,7 @@ def plot_accuracy(eps, th_bound, th_exp, emp, title, save_path=None):
     plt.close()
 
 
-def plot_error_vs_distance(network):
+def plot_error_vs_distance(network, show=False, save=False, save_path=None):
     exp_by_d, norm_by_d = {}, {}
 
     for t in range(network.T):
@@ -163,14 +163,36 @@ def plot_error_vs_distance(network):
     norm_avg = [np.mean(norm_by_d[d]) for d in distances]
 
     plt.figure()
-    plt.plot(distances, exp_avg, 'o-', label="Expected")
-    plt.plot(distances, norm_avg, 's-', label="Normalized")
+    plt.plot(distances, exp_avg, 'o-', label="Theoretical Error")
+    plt.plot(distances, norm_avg, 's-', label="Empirical Error")
     plt.xlabel("Distance from Root")
     plt.ylabel("Error")
     plt.title("Error vs Distance")
     plt.legend()
     plt.grid(True)
-    plt.show()
+
+    # -----------------------------
+    # Save option
+    # -----------------------------
+    if save:
+        if save_path is None:
+            save_path = "."
+
+        os.makedirs(save_path, exist_ok=True)
+
+        filename = "error_vs_distance.png"
+        filepath = os.path.join(save_path, filename)
+
+        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        print(f"Plot saved to: {filepath}")
+
+    # -----------------------------
+    # Show / close
+    # -----------------------------
+    if show:
+        plt.show()
+    else:
+        plt.close()
 
 
 # ============================================================
@@ -198,8 +220,8 @@ def run_trials(network, epsilon):
 # ============================================================
 def experiment():
     paths = get_paths()
-    save_path = paths["experiment"]
-    os.makedirs(save_path, exist_ok=True)
+    results_path = paths["experiment"]
+    os.makedirs(results_path, exist_ok=True)
 
     # -----------------------------
     # Setup
@@ -241,14 +263,14 @@ def experiment():
     # -----------------------------
     # Plot accuracy curves
     # -----------------------------
-    plot_accuracy(EPSILON_VALUES, **results["p"], title="Power Accuracy", save_path=save_path)
-    plot_accuracy(EPSILON_VALUES, **results["i"], title="Current Accuracy", save_path=save_path)
-    plot_accuracy(EPSILON_VALUES, **results["v"], title="Voltage Accuracy", save_path=save_path)
+    plot_accuracy(EPSILON_VALUES, **results["p"], title="Power Accuracy", save_path=results_path)
+    plot_accuracy(EPSILON_VALUES, **results["i"], title="Current Accuracy", save_path=results_path)
+    plot_accuracy(EPSILON_VALUES, **results["v"], title="Voltage Accuracy", save_path=results_path)
 
     # -----------------------------
     # Plot error vs distance
     # -----------------------------
-    plot_error_vs_distance(network)
+    plot_error_vs_distance(network, show=True, save=True, save_path=results_path)
 
 if __name__ == "__main__":
 

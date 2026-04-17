@@ -315,6 +315,20 @@ class RadialNetwork:
         acc_V_bound = 1 - acc_V_bound_num / acc_V_bound_den
         acc_V_exp = 1 - np.sqrt(2 / np.pi) * acc_V_bound_num / acc_V_bound_den
 
+        # Normalize Error
+        self.e_p_exp = {
+            key: self.e_p_exp[key] / (2 * self.p[key]) if self.p[key] != 0 else 0
+            for key in self.e_p_exp
+        }
+        self.e_i_exp = {
+            key: self.e_i_exp[key] / (2 * self.i[key]) if self.i[key] != 0 else 0
+            for key in self.e_i_exp
+        }
+        self.e_v_exp = {
+            key: self.e_V_exp[key] / (2 * self.V[key]) if self.V[key] != 0 else 0
+            for key in self.e_V_exp
+        }
+
         self.acc_p_th_bound = acc_p_bound
         self.acc_i_th_bound = acc_i_bound
         self.acc_V_th_bound = acc_V_bound

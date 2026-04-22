@@ -124,7 +124,7 @@ class RadialNetwork:
     # Build DSS Network From Nodes and Edges
     # ------------------------------------------------------------------
 
-    def export_to_dss(self, t=0):
+    def export_to_dss(self, t=0, tilde=False):
 
         with open(self.dss_filepath, 'w') as f:
 
@@ -150,7 +150,10 @@ class RadialNetwork:
                 if i == self.root:
                     continue
 
-                P = self.P[i][t]
+                if tilde:
+                    P = self.P_tilde[i][t]
+                else:
+                    P = self.P[i][t]
                 Q = self.alpha * P
 
                 f.write(
@@ -221,6 +224,10 @@ class RadialNetwork:
 
         self.nodes = nodes
         self.edges = edges
+
+    # ------------------------------------------------------------------
+    # Solve DSS Power Flow - New (Tilde Setting)
+    # ------------------------------------------------------------------
 
     # ------------------------------------------------------------------
     # Solve DSS Power Flow

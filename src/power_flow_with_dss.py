@@ -128,12 +128,10 @@ class RadialNetwork:
 
         with open(self.dss_filepath, 'w') as f:
 
-            # Circuit Definition
+            # Circuit Definition - Automatically creates default source Vsource.Source
             f.write(f"Clear\n")
-            f.write(f"New Circuit.{self.name} basekv={self.V0} pu=1.0\n\n") # Root Node 1 pu
-
-            # Slack / Source
-            f.write(f"New Vsource.Source bus1=bus{self.root} pu={self.V0} basekv=12.47\n\n")
+            f.write(f"New Circuit.{self.name} basekv={self.V0 / 1000} pu=1.0\n\n") # Root Node 1 pu
+            f.write("Edit Vsource.Source bus1=bus0\n\n") # Root Node index 0
 
             # Lines
             for (i,j) in self.lines:
@@ -162,17 +160,19 @@ class RadialNetwork:
                     f"conn=wye "
                     f"model=1 "
                     f"kV=12.47 "
-                    f"kW={P * 1000} "
-                    f"kvar={Q * 1000}\n"
+                    f"kW={P / 1000} "
+                    f"kvar={Q / 1000}\n"
                 )
 
-                f.write("\n")
+            f.write("\n")
+            f.write("Solve\n")
 
     # ------------------------------------------------------------------
     # Build Nodes and Edges from DSS Network
     # ------------------------------------------------------------------
     def build_from_dss(self):
 
+        dss.Text.Command("Clear")
         dss.Text.Command(f"compile [{self.dss_filepath}]")
 
         # Map buses to indices
@@ -188,12 +188,13 @@ class RadialNetwork:
         # Extract Loads to Nodal P
         dss.Loads.First()
         while True:
-            bus = dss.Loads.BusName().split(".")[0] # Remove phase info
+
+            bus = dss.CktElement.BusNames()[0].split(".")[0]
             i = bus_map[bus]
 
             P_kw = dss.Loads.kW()
-            nodes[i]["P"][0] += P_kw / 1000.0
-            nodes[i]["B"][0] += abs(P_kw / 1000.0) # Conservative B - set B to Total Power (One Appliance)
+            nodes[i]["P"][0] += P_kw * 1000.0
+            nodes[i]["B"][0] += abs(P_kw * 1000.0) # Conservative B - set B to Total Power (One Appliance)
 
             if not dss.Loads.Next():
                 break
@@ -218,7 +219,8 @@ class RadialNetwork:
             if not dss.Lines.Next():
                 break
 
-        return nodes, edges, bus_map
+        self.nodes = nodes
+        self.edges = edges
 
     # ------------------------------------------------------------------
     # C(i):Set of all nodes along path from root to node.

@@ -235,6 +235,8 @@ def experiment():
 
     network.build_from_dss()
 
+    network.dss_power_flow()
+
     network.do_differential_privacy = True
 
     # -----------------------------

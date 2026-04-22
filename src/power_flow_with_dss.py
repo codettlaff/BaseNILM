@@ -170,7 +170,7 @@ class RadialNetwork:
     # ------------------------------------------------------------------
     # Build Nodes and Edges from DSS Network
     # ------------------------------------------------------------------
-    def build_from_dss(self):
+    def build_from_dss(self, t=0):
 
         dss.Text.Command("Clear")
         dss.Text.Command(f"compile [{self.dss_filepath}]")
@@ -181,7 +181,7 @@ class RadialNetwork:
 
         # Initialize node structure
         nodes = {
-            i: {"P": [0.0], "B": [0.0]}
+            i: {"P": self.P[i], "B": self.B[i]}
             for i in bus_map.values()
         }
 
@@ -193,8 +193,8 @@ class RadialNetwork:
             i = bus_map[bus]
 
             P_kw = dss.Loads.kW()
-            nodes[i]["P"][0] += P_kw * 1000.0
-            nodes[i]["B"][0] += abs(P_kw * 1000.0) # Conservative B - set B to Total Power (One Appliance)
+            nodes[i]["P"][t] = P_kw * 1000.0
+            nodes[i]["B"][t] = abs(P_kw * 1000.0) # Conservative B - set B to Total Power (One Appliance)
 
             if not dss.Loads.Next():
                 break

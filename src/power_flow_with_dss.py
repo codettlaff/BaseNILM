@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import opendssdirect as dss
 
 # This Version will also include a method that solves the system using OpenDSS.
 
@@ -170,6 +171,54 @@ class RadialNetwork:
     # ------------------------------------------------------------------
     # Build Nodes and Edges from DSS Network
     # ------------------------------------------------------------------
+    def build_from_dss(self):
+
+        dss.Text.Command(f"compile [{self.dss_filepath}]")
+
+        # Map buses to indices
+        bus_names = dss.Circuit.AllBusNames()
+        bus_map = {name: idx for idx, name in enumerate(bus_names)}
+
+        # Initialize node structure
+        nodes = {
+            i: {"P": [0.0], "B": [0.0]}
+            for i in bus_map.values()
+        }
+
+        # Extract Loads to Nodal P
+        dss.Loads.First()
+        while True:
+            bus = dss.Loads.BusName().split(".")[0] # Remove phase info
+            i = bus_map[bus]
+
+            P_kw = dss.Loads.kW()
+            nodes[i]["P"][0] += P_kw / 1000.0
+            nodes[i]["B"][0] += abs(P_kw / 1000.0) # Conservative B - set B to Total Power (One Appliance)
+
+            if not dss.Loads.Next():
+                break
+
+        # Extract Lines to Edges
+        edges = []
+
+        dss.Lines.First()
+        while True:
+            bus1 = dss.Lines.Bus1().split(".")[0]
+            bus2 = dss.Lines.Bus2().split(".")[0]
+
+            i = bus_map[bus1]
+            j = bus_map[bus2]
+
+            length = dss.Lines.Length()
+            r = dss.Lines.R1() * length
+            x = dss.Lines.X1() * length
+
+            edges.append((i, j, r, x))
+
+            if not dss.Lines.Next():
+                break
+
+        return nodes, edges, bus_map
 
     # ------------------------------------------------------------------
     # C(i):Set of all nodes along path from root to node.

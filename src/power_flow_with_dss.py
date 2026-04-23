@@ -228,6 +228,75 @@ class RadialNetwork:
     # ------------------------------------------------------------------
     # Solve DSS Power Flow - New (Tilde Setting)
     # ------------------------------------------------------------------
+    def dss_power_flow_new(self, tilde=False):
+
+        V_dst = {}
+        p_dst = {}
+        i_dst = {}
+        v_dst = {}
+
+        for t in range(self.T):
+
+            self.export_to_dss(t, tilde)
+
+            dss.Text.Command("Clear")
+            dss.Text.Command(f"compile [{self.dss_filepath}]")
+            dss.Text.Command("Solve")
+
+            # Bus voltage magnitudes
+            bus_names = dss.Circuit.AllBusNames()
+            for bus in bus_names:
+                dss.Circuit.SetActiveBus(bus)
+                vmag = dss.Bus.puVmagAngle()[0]
+                i = int(bus.replace("bus", ""))
+                V_dst[(i, t)] = vmag
+
+                # Line flows and currents
+                dss.Lines.First()
+                while True:
+                    name = dss.Lines.Name()
+
+                    # Parse Line Name
+                    _, i_str, j_str = name.split("_")
+                    i = int(i_str)
+                    j = int(j_str)
+
+                    # Activate Element
+                    dss.Circuit.SetActiveElement(f"Line.{name}")
+
+                    # Powers: [P1, Q1, P2, Q2] (kW, kvar)
+                    powers = dss.CktElement.Powers()
+
+                    # Currents: [I1_real, I1_imag, I2_real, I2_imag]
+                    currents = dss.CktElement.Currents()
+
+                    # Real power flow (from i to j)
+                    P_ij = powers[0] * 1000.0  # kW → W
+                    p_dst[(i, j, t)] = P_ij
+
+                    # Current Magnitude (from i to j)
+                    I_real = currents[0]
+                    I_imag = currents[1]
+                    I_mag = np.sqrt(I_real ** 2 + I_imag ** 2)
+                    i_dst[(i, j, t)] = I_mag
+
+                    # Voltage drop (pu)
+                    base_V = self.V0
+
+                    v_dst[(i, j, t)] = V_dst[(i,t)] - V_dst[(j,t)]
+                    if dss.Lines.Next() == 0:
+                        break
+
+        if tilde:
+            self.V_tilde = V_dst
+            self.v_tilde = v_dst
+            self.i_tilde = i_dst
+            self.p_tilde = p_dst
+        else:
+            self.V = V_dst
+            self.v = v_dst
+            self.i = i_dst
+            self.p = p_dst
 
     # ------------------------------------------------------------------
     # Solve DSS Power Flow

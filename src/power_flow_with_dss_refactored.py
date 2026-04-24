@@ -157,7 +157,7 @@ class RadialNetwork:
                 f.write(
                     f"New Line.L_{i}_{j} "
                     f"bus1=bus{i} bus2=bus{j} "
-                    f"r1={r} x1={x} r0={r} x0{x}"
+                    f"r1={r} x1={x} r0={r} x0={x}"
                     f"length=1 units=km\n"  # Ohms per Unit Length
                 )
 
@@ -171,20 +171,21 @@ class RadialNetwork:
                 if tilde: series = self.P_tilde[i]
                 else: series = self.P[i]
 
+                mult_str = " ".join(str(p / 1e3) for p in series) # Convert W to kW
+
                 f.write(
                     f"New LoadShape.LS_{i} "
                     f"npts={self.T} "
-                    f"interval=1 "
+                    f"interval=0.000833 " # For 3s Resolution Data
                     f"UseActual=Yes "
-                    f"Pmult=({series})\n"
+                    f"Pmult=({mult_str})\n"
                 )
+
+            f.write("\n")
 
             # Loads
             for i in self.nodes:
                 if i == 0: continue
-
-                if tilde: series = self.P_tilde[i]
-                else: series = self.P[i]
 
                 f.write(
                     f"New Load.Load_{i} "

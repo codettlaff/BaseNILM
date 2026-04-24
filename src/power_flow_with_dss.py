@@ -22,6 +22,7 @@ class RadialNetwork:
         # -----------------------------
         self.nodes = list(nodes.keys())  # Node indices
         self.P = {i: list(data["P"]) for i, data in nodes.items()} # Nodal active power injections
+        self.P_tilde = {i: list(data["P"]) for i, data in nodes.items()}  # Nodal active power injections
         self.B = {i: list(data["B"]) for i, data in nodes.items()} # Appliance power bound
         self.T = len(next(iter(self.P.values()))) # Number of timesteps
 
@@ -121,6 +122,13 @@ class RadialNetwork:
         self.acc_v = 0
 
     # ------------------------------------------------------------------
+    # Set Uniform B
+    # ------------------------------------------------------------------
+    def set_uniform_B(self, value):
+        for i in self.nodes:
+            self.B[i] = [value] * self.T
+
+    # ------------------------------------------------------------------
     # Build DSS Network From Nodes and Edges
     # ------------------------------------------------------------------
 
@@ -151,9 +159,8 @@ class RadialNetwork:
                     continue
 
                 if tilde:
-                    P = self.P_tilde[i][t]
-                else:
-                    P = self.P[i][t]
+                    P = self.P_tilde[(i, j)]
+                else: P = self.P[i][t]
                 Q = self.alpha * P
 
                 f.write(

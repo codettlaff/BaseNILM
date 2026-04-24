@@ -229,11 +229,15 @@ def experiment():
     P, B = load_redd_houses()
     network = build_network(P, B)
 
+    B_uniform = 5e3 # Rated Power of HVAC System
+
     network.export_to_dss()
 
     network.power_flow()
 
     network.build_from_dss()
+    network.set_uniform_B(B_uniform)
+    network.epsilon = 1000
 
     network.dss_power_flow()
     network.power_flow_results(display_results=True)

@@ -121,7 +121,7 @@ class RadialNetwork:
 
             # Loads
             for i in self.nodes:
-                if i == self.root: # No Load at Substation
+                if i == 0: # No Load at Substation
                     continue
 
                 if tilde: P = self.P_tilde[i][t]
@@ -141,6 +141,68 @@ class RadialNetwork:
 
         f.write("\n")
         f.write("Solve\n")
+
+    def export_to_dss_timeseries(self, tilde=False):
+        with open(self.dss_filepath, 'w') as f:
+
+            # Circuit Definition
+            f.write(f"Clear\n")
+            f.write(f"New Circuit.{self.name} basekv={self.V0/1e3} pu=1.0\n")
+            f.write(f"Edit Vsource.Source bus1=bus0\n") # Make sure root node is index 0.
+
+            # Lines
+            for (i, j) in self.lines:
+                r = self.r[(i, j)]
+                x = self.x[(i, j)]
+                f.write(
+                    f"New Line.L_{i}_{j} "
+                    f"bus1=bus{i} bus2=bus{j} "
+                    f"r1={r} x1={x} r0={r} x0{x}"
+                    f"length=1 units=km\n"  # Ohms per Unit Length
+                )
+
+            f.write("\n")
+
+            # Load-Shapes
+            for i in self.nodes:
+                if i == 0:
+                    continue
+
+                if tilde: series = self.P_tilde[i]
+                else: series = self.P[i]
+
+                f.write(
+                    f"New LoadShape.LS_{i} "
+                    f"npts={self.T} "
+                    f"interval=1 "
+                    f"UseActual=Yes "
+                    f"Pmult=({series})\n"
+                )
+
+            # Loads
+            for i in self.nodes:
+                if i == 0: continue
+
+                if tilde: series = self.P_tilde[i]
+                else: series = self.P[i]
+
+                f.write(
+                    f"New Load.Load_{i} "
+                    f"bus1=bus{i} "
+                    f"phases=1 "
+                    f"conn=wye "
+                    f"model=1 "
+                    f"kV={self.V0/1e3} "
+                    f"daily=LS_{i}\n"
+                )
+
+            f.write("\n")
+
+            # Simulation Setup
+            f.write(f"Set mode=daily\n")
+            f.write(f"Set number={self.T}\n")
+            f.write(f"Set stepsize=3s\n") # Adjust if needed (should equal time resolution of load data).
+            f.write(f"\nSolve\n")
 
     def build_from_dss(self, t=0):
 

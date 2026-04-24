@@ -159,7 +159,7 @@ class RadialNetwork:
                     continue
 
                 if tilde:
-                    P = self.P_tilde[(i, j)]
+                    P = self.P_tilde[i][t]
                 else: P = self.P[i][t]
                 Q = self.alpha * P
 

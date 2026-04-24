@@ -351,6 +351,26 @@ class RadialNetwork:
     def differential_privacy(self):
         """
         Add Laplace noise to nodal power injections for all timesteps.
+        Output structure matches self.P: {i: [P_i(t)]}
+        """
+
+        # Initialize structure
+        self.P_tilde = {i: [0.0] * self.T for i in self.nodes}
+        self.eta = {}
+
+        for t in range(self.T):
+            for i in self.nodes:
+                var = 8 * self.B[i][t] ** 2 / (self.epsilon ** 2)
+                b = np.sqrt(var / 2)
+
+                noise = np.random.laplace(0, b)
+
+                self.eta[(i, t)] = noise
+                self.P_tilde[i][t] = self.P[i][t] + noise
+
+    def differential_privacy_old(self):
+        """
+        Add Laplace noise to nodal power injections for all timesteps.
         """
         for t in range(self.T):
             for i in self.nodes:
@@ -630,6 +650,60 @@ class RadialNetwork:
         if write_csv:
             nodes_csv_filepath = results_folderpath + f"{self.name}_nodes_t{t}.csv"
             lines_csv_filepath = results_folderpath + f"{self.name}_lines_t{t}.csv"
+            df_nodes.to_csv(nodes_csv_filepath)
+            df_lines.to_csv(lines_csv_filepath)
+
+        if return_results: return df_nodes, df_lines
+
+    def noisy_power_flow_results(self, t=0, return_results=False, display_results=False, write_csv=False, results_folderpath=None):
+
+        # ============================================================
+        # NODE TABLE
+        # ============================================================
+        node_data = []
+        for i in self.nodes:
+            node_data.append({
+                "node": i,
+                "V": self.V_tilde.get((i, t), None),
+                "P_injection": self.P_tilde[i][t]
+            })
+
+        df_nodes = pd.DataFrame(node_data).sort_values(by="node")
+
+        # ============================================================
+        # LINE TABLE
+        # ============================================================
+        line_data = []
+        for (i, j) in self.lines:
+            line_data.append({
+                "from": i,
+                "to": j,
+                "r": self.r[(i, j)],
+                "x": self.x[(i, j)],
+                "p_flow": self.p_tilde.get((i, j, t), None),
+                "i_flow": self.i_tilde.get((i, j, t), None),
+                "v_drop": self.v_tilde.get((i, j, t), None),
+            })
+
+        df_lines = pd.DataFrame(line_data).sort_values(by=["from", "to"])
+
+        # ============================================================
+        # DISPLAY
+        # ============================================================
+        if display_results:
+            print("\n=== NODE STATES (t={}) ===".format(t))
+            print(df_nodes.to_string(index=False))
+
+            print("\n=== LINE STATES (t={}) ===".format(t))
+            print(df_lines.to_string(index=False))
+
+        # ============================================================
+        # SAVE TO CSV
+        # ============================================================
+
+        if write_csv:
+            nodes_csv_filepath = results_folderpath + f"{self.name}_nodes_noisy_t{t}.csv"
+            lines_csv_filepath = results_folderpath + f"{self.name}_lines_noisy_t{t}.csv"
             df_nodes.to_csv(nodes_csv_filepath)
             df_lines.to_csv(lines_csv_filepath)
 

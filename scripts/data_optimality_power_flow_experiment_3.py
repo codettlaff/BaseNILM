@@ -247,7 +247,7 @@ def experiment():
     network.differential_privacy()
 
     network.dss_power_flow(tilde=True)
-    network.power_flow_results(display_results=True)
+    network.noisy_power_flow_results(display_results=True)
 
     # -----------------------------
     # Storage

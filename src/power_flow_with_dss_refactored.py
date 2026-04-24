@@ -1,11 +1,16 @@
 import numpy as np
 import pandas as pd
 import opendssdirect as dss
+from opendssdirect.Lines import Length
+
 
 # Assumes root node index 0
 # Assumes entire system one voltage level
 # Assumes entire system one appliance bound
 # Assumes single-phase system
+
+# Want to be able to initialize from DSS file, without providing nodes and edges.
+# This will require dealing with OpenDSS in time-series, rather than for a single timestep.
 
 class RadialNetwork:
     def __init__(self, name, nodes, edges, V0=12.47e3, alpha=0.0, epsilon=None, B=5e3, dss_filepath='network.dss'):
@@ -136,3 +141,49 @@ class RadialNetwork:
 
         f.write("\n")
         f.write("Solve\n")
+
+    def build_from_dss(self, t=0):
+
+        dss.Text.Command("Clear")
+        dss.Text.Command(f"compile [{self.dss_filepath}]")
+
+        # Map buses to indices
+        bus_names = dss.Circuit.AllBusNames()
+        bus_map = {name: idx for idx, name in enumerate(bus_names)}
+
+        # Initialize
+        nodes = {
+            i: {"P": self.P[i]}
+            for i in bus_map.values()
+        }
+
+        # Extract Loads to Nodal P
+        dss.Loads.First()
+        while True:
+            bus = dss.CktElement.BusNames()[0].split(".")[0]
+            i = bus_map[bus]
+            p_kw = dss.Loads.kW()
+            nodes[i]["P"][t] = p_kw * 1e3
+            if not dss.Loads.Next():
+                break
+
+        # Extract Lines to Edges
+        edges = []
+
+        dss.Lines.First()
+        while True:
+            bus1 = dss.Lines.Bus1().split(".")[0]
+            bus2 = dss.Lines.Bus2().cplit(".")[0]
+            i = bus_map[bus1]
+            j = bus_map[bus2]
+            length = dss.Lines.Length()
+            r = dss.Lines.R1() * length
+            x = dss.Lines.X1() * length
+            edges.append((i,j,r,x))
+            if not dss.Lines.Next():
+                break
+
+        self.nodes = nodes
+        self.edges = edges
+
+

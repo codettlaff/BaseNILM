@@ -236,8 +236,14 @@ def experiment():
     network.build_from_dss()
 
     network.dss_power_flow()
+    network.power_flow_results(display_results=True)
 
     network.do_differential_privacy = True
+
+    network.differential_privacy()
+
+    network.dss_power_flow(tilde=True)
+    network.power_flow_results(display_results=True)
 
     # -----------------------------
     # Storage

@@ -29,7 +29,7 @@ class RadialNetwork:
 
         # Time Series
         self.nodes = list(nodes.keys()) # List of Node Indices
-        self.T = len(nodes["P"]) # Number of Timesteps
+        self.T = len(nodes[0]["P"]) # Number of Timesteps
         self.P = {i: data["P"] for i, data in nodes.items()} # Copy True Injections
         self.P_tilde = {i: [0.0] * self.T for i, data in nodes.items()} # Initialize Noisy Injections
 

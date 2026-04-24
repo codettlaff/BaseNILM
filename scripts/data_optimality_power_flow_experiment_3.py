@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from data.loadData import load_data, process_data
-from power_flow_with_dss import RadialNetwork
+from power_flow_with_dss_refactored import RadialNetwork
 
 # ============================================================
 # PARAMETERS
@@ -97,9 +97,9 @@ def load_redd_houses(n_houses=6):
 # ============================================================
 # NETWORK
 # ============================================================
-def build_network(P, B):
+def build_network(P):
     nodes = {
-        i: {"P": list(P[i]), "B": list(B[i])}
+        i: {"P": list(P[i])}
         for i in range(N_NODES)
     }
 
@@ -227,27 +227,9 @@ def experiment():
     # Setup
     # -----------------------------
     P, B = load_redd_houses()
-    network = build_network(P, B)
+    network = build_network(P)
 
-    B_uniform = 5e3 # Rated Power of HVAC System
-
-    network.export_to_dss()
-
-    network.power_flow()
-
-    network.build_from_dss()
-    network.set_uniform_B(B_uniform)
-    network.epsilon = 1000
-
-    network.dss_power_flow()
-    network.power_flow_results(display_results=True)
-
-    network.do_differential_privacy = True
-
-    network.differential_privacy()
-
-    network.dss_power_flow(tilde=True)
-    network.noisy_power_flow_results(display_results=True)
+    network.export_to_dss_timeseries()
 
     # -----------------------------
     # Storage

@@ -5,6 +5,7 @@ import opendssdirect as dss
 # Assumes root node index 0
 # Assumes entire system one voltage level
 # Assumes entire system one appliance bound
+# Assumes single-phase system
 
 class RadialNetwork:
     def __init__(self, name, nodes, edges, V0=12.47e3, alpha=0.0, epsilon=None, B=5e3, dss_filepath='network.dss'):
@@ -39,11 +40,8 @@ class RadialNetwork:
         self.lines = []
 
         # Line Parameters
-        self.r = {}
-        self.x = {}
-        self.z = {}
-        self.beta = {}
-        self.c = {}
+        self.r = {} # Unit Ohms
+        self.x = {} # Unit Ohms
 
         for i, j, r_ij, x_ij in edges:
             self.children[i].append(j)
@@ -94,3 +92,47 @@ class RadialNetwork:
         self.e_v = {} # {(i,j,t): e_v_ij} # Voltage Drop Error (Empirical)
         self.e_V = {} # {(i,t): e_V_i} # Nodal Voltage Error (Empirical)
 
+    def export_to_dss(self, t=0, tilde=False):
+
+        with open(self.dss_filepath, 'w') as f:
+
+            # Circuit Definition - Automatically Creates Default Source Vsource.Source
+            f.write(f"Clear\n")
+            f.write(f"New Circuit.{self.name} basekv={self.V0/1e3} pu=1.0 \n")
+            f.write(f"Edit Vsource.Source bus1=bus0 \n") # Make Sure Root is Index 0
+
+            # Lines
+            for (i,j) in self.lines:
+                r = self.r[(i,j)]
+                x = self.x[(i,j)]
+                f.write(
+                    f"New Line.L_{i}_{j} "
+                    f"bus1=bus{i} bus2=bus{j} "
+                    f"r1={r} x1={x} r0={r} x0{x}"
+                    f"length=1 units=km\n" # Ohms per Unit Length
+                )
+
+            f.write("\n")
+
+            # Loads
+            for i in self.nodes:
+                if i == self.root: # No Load at Substation
+                    continue
+
+                if tilde: P = self.P_tilde[i][t]
+                else: P = self.P_tilde[i][t]
+                Q = self.alpha * P
+
+                f.write(
+                    f"New Load.Load_{i} "
+                    f"bus1=bus{i} "
+                    f"phases=1"
+                    f"conn=wye "
+                    f"model=1 "
+                    f"kV={self.V0/1e3} "
+                    f"kW={P/1e3} "
+                    f"kvar={Q/1e3} "
+                )
+
+        f.write("\n")
+        f.write("Solve\n")

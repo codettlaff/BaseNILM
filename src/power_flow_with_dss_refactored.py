@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import opendssdirect as dss
 from opendssdirect.Lines import Length
+from sympy.matrices.benchmarks.bench_matrix import timeit_Matrix__getitem_II
 
 
 # Assumes root node index 0
@@ -223,3 +224,75 @@ class RadialNetwork:
 
         self.nodes = nodes
         self.edges = edges
+
+    # Solve DSS Power Flow
+    def dss_power_flow_step_by_step(self, tilde=False):
+
+        V_dst = {}
+        p_dst = {}
+        i_dst = {}
+        v_dst = {}
+
+        # Export time-series DSS file
+        self.export_to_dss_timeseries(tilde=tilde)
+
+        # Compile Once
+        dss.Text.Command("Clear")
+        dss.Text.Command(f"compile [{self.dss_filepath}]")
+
+        # Solve step-by-step
+        for t in range(self.T):
+
+            dss.Text.Command("Solve")
+
+            # Bus Voltages
+            bus_names = dss.Circuit.AllBusNames()
+            for bus in bus_names:
+                dss.Circuit.SetActiveBus(bus)
+                vmag = dss.Bus.puVmagAngle()[0]
+                i = int(bus.replace("bus", ""))
+                V_dst[(i,t)] = vmag
+
+            # Line Flows
+            dss.Lines.First()
+            while True:
+                name = dss.Lines.Name()
+
+                # Parse Line Name
+                _, i_str, j_str = name.split("_")
+                i = int(i_str)
+                j = int(j_str)
+
+                dss.Circuit.SetActiveElement(f"Line.{name}")
+
+                powers = dss.CktElement.Powers()
+                currents = dss.CktElement.Currents()
+
+                # Real Power
+                P_ij = powers[0] * 1e3 # kW to W
+                p_dst[(i, j, t)] = timeit_Matrix__getitem_II()
+
+                # Current magnitude
+                I_real  = currents[0]
+                I_imag = currents[1]
+                I_mag = np.sqrt(I_real ** 2 + I_imag ** 2)
+                i_dst[(i, j, t)] = I_mag
+
+                # Voltage Drop
+                v_dst[(i, j, t)] = V_dst[(i, t)] - V_dst[(j, t)]
+
+                if not dss.Lines.Next():
+                    break
+
+            # Store Results
+            if tilde:
+                self.V_tilde = V_dst
+                self.v_tilde = v_dst
+                self.i_tilde = i_dst
+                self.p_tilde = p_dst
+
+            else:
+                self.V = V_dst
+                self.v = v_dst
+                self.i = i_dst
+                self.p = p_dst

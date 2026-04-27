@@ -296,3 +296,78 @@ class RadialNetwork:
                 self.v = v_dst
                 self.i = i_dst
                 self.p = p_dst
+
+    def dss_power_flow_timeseries(self, tilde=False):
+
+        V_dst = {}
+        p_dst = {}
+        i_dst = {}
+        v_dst = {}
+
+        # Export full time-series DSS
+        self.export_to_dss_timeseries(tilde=tilde)
+
+        # Compile
+        dss.Text.Command("Clear")
+        dss.Text.Command(f"compile [{self.dss_filepath}]")
+
+        # Bus Voltage Monitor
+        for i in self.nodes:
+            dss.Text.Command(
+                f"New Monitor.V_{i} element=Load.Load_{i} mode=0 terminal=1"
+            )
+
+        # Line Monitors (power + current)
+        for (i,j) in self.Lines:
+            dss.Text.Command(
+                f"New Monitor.P_{i}_{j} element=Line.L_{i}_{j} mode=1 terminal=1"
+            )
+            dss.Text.Command(
+                f"New Monitor.I_{i}_{j} element=Line.L_{i}_{j} mode=2 terminal=1"
+            )
+
+        dss.Text.Command("Solve")
+
+        # Extract Voltage Monitor Data
+        for i in self.nodes:
+            name = f"V_{i}"
+            dss.Monitors.Name(name)
+            data = dss.Monitors.Channel(1) # Voltage magnitude
+            for t, v in enumerate(data):
+                V_dst[(i,t)] = v
+
+        # Line Flows + Currents
+        for (i,j) in self.lines:
+
+            # Power
+            dss.Monitors.Name(f"P_{i}_{j}")
+            p_data = dss.Monitors.Channel(1)
+
+            # Current
+            dss.Monitors.Name(f"PI_{i}_{j}")
+            i_real = dss.Monitors.Channel(1)
+            i_imag = dss.Monitors.Channel(2)
+
+            for t in range(len(p_data)):
+                P_ij = p_data[t] * 1e3 # kW to W
+                p_dst[(i, j, t)] = P_ij
+                I_mag = np.sqrt(i_real[t]**2 + i_imag[t]**2)
+                i_dst[(i, j, t)] = I_mag
+
+        # Voltage Drops
+        for (i,j) in self.lines:
+            for t in range(self.T):
+                v_dst[(i, j, t)] = V_dst[(i, t)] - V_dst[(j, t)]
+
+        # Store Results
+        if tilde:
+            self.V_tilde = V_dst
+            self.v_tilde = v_dst
+            self.i_tilde = i_dst
+            self.p_tilde = p_dst
+
+        else:
+            self.V = V_dst
+            self.v = v_dst
+            self.i = i_dst
+            self.p = p_dst

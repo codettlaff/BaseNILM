@@ -113,7 +113,7 @@ class RadialNetwork:
                 f.write(
                     f"New Line.L_{i}_{j} "
                     f"bus1=bus{i} bus2=bus{j} "
-                    f"r1={r} x1={x} r0={r} x0{x}"
+                    f"r1={r} x1={x} r0={r} x0{x} "
                     f"length=1 units=km\n" # Ohms per Unit Length
                 )
 
@@ -131,7 +131,7 @@ class RadialNetwork:
                 f.write(
                     f"New Load.Load_{i} "
                     f"bus1=bus{i} "
-                    f"phases=1"
+                    f"phases=1 "
                     f"conn=wye "
                     f"model=1 "
                     f"kV={self.V0/1e3} "
@@ -157,7 +157,7 @@ class RadialNetwork:
                 f.write(
                     f"New Line.L_{i}_{j} "
                     f"bus1=bus{i} bus2=bus{j} "
-                    f"r1={r} x1={x} r0={r} x0={x}"
+                    f"r1={r} x1={x} r0={r} x0={x} "
                     f"length=1 units=km\n"  # Ohms per Unit Length
                 )
 
@@ -194,13 +194,13 @@ class RadialNetwork:
                     f"conn=wye "
                     f"model=1 "
                     f"kV={self.V0/1e3} "
-                    f"daily=LS_{i}\n"
+                    f"Daily=LS_{i}\n"
                 )
 
             f.write("\n")
 
             # Simulation Setup
-            f.write(f"Set mode=daily\n")
+            f.write(f"Set mode=Daily\n")
             f.write(f"Set number={self.T}\n")
             f.write(f"Set stepsize=3s\n") # Adjust if needed (should equal time resolution of load data).
             f.write(f"\nSolve\n")
@@ -249,4 +249,66 @@ class RadialNetwork:
         self.nodes = nodes
         self.edges = edges
 
+    def build_from_dss_timeseries(self):
+        dss.Text.Command("Clear")
+        dss.Text.Command(f"compile [{self.dss_filepath}]")
 
+        # Map buses to indices
+        bus_names = dss.Circuit.AllBusNames()
+        bus_map = {name: idx for idx, name in enumerate(bus_names)}
+
+        # Determine number of timesteps from first Loadshape
+        T = 0
+        dss.Loads.First()
+        if dss.Loads.Count() > 0:
+            shape_name = dss.Loads.Daily()
+            if shape_name:
+                dss.LoadShape.Name(shape_name)
+                T = dss.LoadShape.Npts()
+
+        self.T = T
+
+        # Initialize nodes with zero time-series
+        nodes = {
+            i: {"P": [0.0] * T}
+            for i in bus_map.values()
+        }
+
+        # Extract Loads - Full time-series
+        dss.Loads.First()
+        while True:
+            bus = dss.CktElement.BusNames()[0].split(".")[0]
+            i = bus_map[bus]
+
+            shape_name = dss.Loads.Daily()
+            dss.LoadShape.Name(shape_name)
+
+            kw = dss.LoadShape.PMult()
+            for t in range(T):
+                nodes[i]["P"] = [p * 1e3 for p in kw] # kW to W
+
+            if not dss.Loads.Next():
+                break
+
+        # Extract Lines - Edges
+        edges = []
+
+        dss.Lines.First()
+        while True:
+            bus1 = dss.Lines.Bus1().split(".")[0]
+            bus2 = dss.Lines.Bus2().split(".")[0]
+
+            i = bus_map[bus1]
+            j = bus_map[bus2]
+
+            length = dss.Lines.Length()
+            r = dss.Lines.R1() * length
+            x = dss.Lines.X1() * length
+
+            edges.append((i, j, r, x))
+
+            if not dss.Lines.Next():
+                break
+
+        self.nodes = nodes
+        self.edges = edges

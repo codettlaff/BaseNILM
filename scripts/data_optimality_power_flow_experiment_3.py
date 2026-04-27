@@ -230,6 +230,7 @@ def experiment():
     network = build_network(P)
 
     network.export_to_dss_timeseries()
+    network.build_from_dss_timeseries()
 
     # -----------------------------
     # Storage

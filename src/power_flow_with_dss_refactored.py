@@ -97,51 +97,6 @@ class RadialNetwork:
         self.e_v = {} # {(i,j,t): e_v_ij} # Voltage Drop Error (Empirical)
         self.e_V = {} # {(i,t): e_V_i} # Nodal Voltage Error (Empirical)
 
-    def export_to_dss(self, t=0, tilde=False):
-
-        with open(self.dss_filepath, 'w') as f:
-
-            # Circuit Definition - Automatically Creates Default Source Vsource.Source
-            f.write(f"Clear\n")
-            f.write(f"New Circuit.{self.name} basekv={self.V0/1e3} pu=1.0 \n")
-            f.write(f"Edit Vsource.Source bus1=bus0 \n") # Make Sure Root is Index 0
-
-            # Lines
-            for (i,j) in self.lines:
-                r = self.r[(i,j)]
-                x = self.x[(i,j)]
-                f.write(
-                    f"New Line.L_{i}_{j} "
-                    f"bus1=bus{i} bus2=bus{j} "
-                    f"r1={r} x1={x} r0={r} x0{x} "
-                    f"length=1 units=km\n" # Ohms per Unit Length
-                )
-
-            f.write("\n")
-
-            # Loads
-            for i in self.nodes:
-                if i == 0: # No Load at Substation
-                    continue
-
-                if tilde: P = self.P_tilde[i][t]
-                else: P = self.P_tilde[i][t]
-                Q = self.alpha * P
-
-                f.write(
-                    f"New Load.Load_{i} "
-                    f"bus1=bus{i} "
-                    f"phases=1 "
-                    f"conn=wye "
-                    f"model=1 "
-                    f"kV={self.V0/1e3} "
-                    f"kW={P/1e3} "
-                    f"kvar={Q/1e3} "
-                )
-
-        f.write("\n")
-        f.write("Solve\n")
-
     def export_to_dss_timeseries(self, tilde=False):
         with open(self.dss_filepath, 'w') as f:
 
@@ -204,50 +159,6 @@ class RadialNetwork:
             f.write(f"Set number={self.T}\n")
             f.write(f"Set stepsize=3s\n") # Adjust if needed (should equal time resolution of load data).
             f.write(f"\nSolve\n")
-
-    def build_from_dss(self, t=0):
-
-        dss.Text.Command("Clear")
-        dss.Text.Command(f"compile [{self.dss_filepath}]")
-
-        # Map buses to indices
-        bus_names = dss.Circuit.AllBusNames()
-        bus_map = {name: idx for idx, name in enumerate(bus_names)}
-
-        # Initialize
-        nodes = {
-            i: {"P": self.P[i]}
-            for i in bus_map.values()
-        }
-
-        # Extract Loads to Nodal P
-        dss.Loads.First()
-        while True:
-            bus = dss.CktElement.BusNames()[0].split(".")[0]
-            i = bus_map[bus]
-            p_kw = dss.Loads.kW()
-            nodes[i]["P"][t] = p_kw * 1e3
-            if not dss.Loads.Next():
-                break
-
-        # Extract Lines to Edges
-        edges = []
-
-        dss.Lines.First()
-        while True:
-            bus1 = dss.Lines.Bus1().split(".")[0]
-            bus2 = dss.Lines.Bus2().cplit(".")[0]
-            i = bus_map[bus1]
-            j = bus_map[bus2]
-            length = dss.Lines.Length()
-            r = dss.Lines.R1() * length
-            x = dss.Lines.X1() * length
-            edges.append((i,j,r,x))
-            if not dss.Lines.Next():
-                break
-
-        self.nodes = nodes
-        self.edges = edges
 
     def build_from_dss_timeseries(self):
         dss.Text.Command("Clear")

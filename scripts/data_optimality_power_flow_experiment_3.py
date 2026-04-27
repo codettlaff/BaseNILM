@@ -232,6 +232,8 @@ def experiment():
     network.export_to_dss_timeseries()
     network.build_from_dss_timeseries()
 
+    network.dss_power_flow_step_by_step()
+
     # -----------------------------
     # Storage
     # -----------------------------

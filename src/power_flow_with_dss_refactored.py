@@ -284,18 +284,18 @@ class RadialNetwork:
                 if not dss.Lines.Next():
                     break
 
-            # Store Results
-            if tilde:
-                self.V_tilde = V_dst
-                self.v_tilde = v_dst
-                self.i_tilde = i_dst
-                self.p_tilde = p_dst
+        # Store Results
+        if tilde:
+            self.V_tilde = V_dst
+            self.v_tilde = v_dst
+            self.i_tilde = i_dst
+            self.p_tilde = p_dst
 
-            else:
-                self.V = V_dst
-                self.v = v_dst
-                self.i = i_dst
-                self.p = p_dst
+        else:
+            self.V = V_dst
+            self.v = v_dst
+            self.i = i_dst
+            self.p = p_dst
 
     def dss_power_flow_timeseries(self, tilde=False):
 

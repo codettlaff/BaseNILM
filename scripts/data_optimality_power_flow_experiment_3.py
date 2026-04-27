@@ -229,13 +229,15 @@ def experiment():
     P, B = load_redd_houses()
     network = build_network(P)
 
-    network.export_to_dss_timeseries()
+    network.export_to_dss_timeseries_single_phase()
     network.build_from_dss_timeseries()
 
     network.dss_power_flow_step_by_step()
+    print("Step By Step Results:\n")
     network.power_flow_results(display_results=True)
 
     network.dss_power_flow_timeseries()
+    print("Time Series Results:\n")
     network.power_flow_results(display_results=True)
 
     # -----------------------------

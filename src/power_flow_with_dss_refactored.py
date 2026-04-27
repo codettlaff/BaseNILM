@@ -313,24 +313,26 @@ class RadialNetwork:
 
         # Bus Voltage Monitor
         for i in self.nodes:
+            if i ==0: continue
             dss.Text.Command(
                 f"New Monitor.V_{i} element=Load.Load_{i} mode=0 terminal=1"
             )
 
         # Line Monitors (power + current)
-        for (i,j) in self.Lines:
+        for (i,j) in self.lines:
             dss.Text.Command(
                 f"New Monitor.P_{i}_{j} element=Line.L_{i}_{j} mode=1 terminal=1"
             )
             dss.Text.Command(
-                f"New Monitor.I_{i}_{j} element=Line.L_{i}_{j} mode=2 terminal=1"
+                f"New Monitor.I_{i}_{j} element=Line.L_{i}_{j} mode=0 terminal=1"
             )
 
         dss.Text.Command("Solve")
 
         # Extract Voltage Monitor Data
         for i in self.nodes:
-            name = f"V_{i}"
+            if i == 0: continue
+            name = f"v_{i}"
             dss.Monitors.Name(name)
             data = dss.Monitors.Channel(1) # Voltage magnitude
             for t, v in enumerate(data):
@@ -340,23 +342,22 @@ class RadialNetwork:
         for (i,j) in self.lines:
 
             # Power
-            dss.Monitors.Name(f"P_{i}_{j}")
+            dss.Monitors.Name(f"p_{i}_{j}")
             p_data = dss.Monitors.Channel(1)
 
             # Current
-            dss.Monitors.Name(f"PI_{i}_{j}")
-            i_real = dss.Monitors.Channel(1)
-            i_imag = dss.Monitors.Channel(2)
+            dss.Monitors.Name(f"i_{i}_{j}")
+            I_mag = dss.Monitors.Channel(7)
 
             for t in range(len(p_data)):
                 P_ij = p_data[t] * 1e3 # kW to W
                 p_dst[(i, j, t)] = P_ij
-                I_mag = np.sqrt(i_real[t]**2 + i_imag[t]**2)
-                i_dst[(i, j, t)] = I_mag
+                i_dst[(i, j, t)] = I_mag[t]
 
         # Voltage Drops
         for (i,j) in self.lines:
             for t in range(self.T):
+                if i == 0: V_dst[(i,t)] = self.V0
                 v_dst[(i, j, t)] = V_dst[(i, t)] - V_dst[(j, t)]
 
         # Store Results

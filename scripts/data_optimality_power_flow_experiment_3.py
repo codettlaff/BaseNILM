@@ -99,11 +99,11 @@ def load_redd_houses(n_houses=6):
 # ============================================================
 def build_network(P):
     nodes = {
-        i: {"P": list(P[i])}
-        for i in range(N_NODES)
+        i: {"P": list(P[i-1])}
+        for i in range(1,N_NODES+1)
     }
 
-    edges = [(i, i + 1, R, X) for i in range(N_NODES - 1)]
+    edges = [(i, i + 1, R, X) for i in range(N_NODES)]
 
     return RadialNetwork(
         name=NETWORK_NAME,
@@ -232,8 +232,11 @@ def experiment():
     network.export_to_dss_timeseries()
     network.build_from_dss_timeseries()
 
-    # network.dss_power_flow_step_by_step()
+    network.dss_power_flow_step_by_step()
+    network.power_flow_results(display_results=True)
+
     network.dss_power_flow_timeseries()
+    network.power_flow_results(display_results=True)
 
     # -----------------------------
     # Storage

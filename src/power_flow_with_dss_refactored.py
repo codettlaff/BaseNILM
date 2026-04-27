@@ -30,9 +30,13 @@ class RadialNetwork:
 
         # Time Series
         self.nodes = list(nodes.keys()) # List of Node Indices
-        self.T = len(nodes[0]["P"]) # Number of Timesteps
+        self.T = len(nodes[1]["P"]) # Number of Timesteps
         self.P = {i: data["P"] for i, data in nodes.items()} # Copy True Injections
         self.P_tilde = {i: [0.0] * self.T for i, data in nodes.items()} # Initialize Noisy Injections
+
+        # Root Node
+        self.nodes.insert(0, 0)
+        self.P[0] = [0.0] * self.T
 
         # Constants
         self.V0 = V0
@@ -372,3 +376,45 @@ class RadialNetwork:
             self.v = v_dst
             self.i = i_dst
             self.p = p_dst
+
+    def power_flow_results(self, t=0, return_results=False, display_results=False, write_csv=False,
+                           results_folderpath=None):
+
+        # Node Table
+        node_data = []
+        for i in self.nodes:
+            node_data.append({
+                "node": i,
+                "V": self.V.get((i, t), None),
+                "P_injection": self.P[i][t]
+            })
+        df_nodes = pd.DataFrame(node_data).sort_values(by="node")
+
+        # Line Table
+        line_data = []
+        for (i, j) in self.lines:
+            line_data.append({
+                "from": i,
+                "to": j,
+                "r": self.r[(i, j)],
+                "x": self.x[(i, j)],
+                "p_flow": self.p.get((i, j, t), None),
+                "i_flow": self.i.get((i, j, t), None),
+                "v_drop": self.v.get((i, j, t), None),
+            })
+        df_lines = pd.DataFrame(line_data).sort_values(by=["from", "to"])
+
+        # Display
+        if display_results:
+            print("\n=== NODE STATES (t={}) ===".format(t))
+            print(df_nodes.to_string(index=False))
+            print("\n=== LINE STATES (t={}) ===".format(t))
+            print(df_lines.to_string(index=False))
+
+        # Save to CSV
+        if write_csv:
+            nodes_csv_filepath = results_folderpath + f"{self.name}_nodes_t{t}.csv"
+            lines_csv_filepath = results_folderpath + f"{self.name}_lines_t{t}.csv"
+            df_nodes.to_csv(nodes_csv_filepath)
+            df_lines.to_csv(lines_csv_filepath)
+        if return_results: return df_nodes, df_lines

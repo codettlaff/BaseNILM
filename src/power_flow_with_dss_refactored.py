@@ -304,7 +304,7 @@ class RadialNetwork:
         v_dst = {}
 
         # Export time-series DSS file
-        self.export_to_dss_timeseries(tilde=tilde)
+        self.export_to_dss_timeseries_single_phase(tilde=tilde)
 
         # Compile Once
         dss.Text.Command("Clear")
@@ -337,13 +337,13 @@ class RadialNetwork:
 
                 powers = dss.CktElement.Powers()
                 P_from = powers[0]  # terminal 1
-                P_to = powers[2]  # terminal 2
-                P_flow = P_from - P_to
+                P_to = abs(powers[1])  # terminal 2
+                P_loss = abs(P_from - P_to)
 
                 currents = dss.CktElement.Currents()
 
                 # Real Power
-                P_ij = P_flow * 1e3 # kW to W
+                P_ij = P_from * 1e3 # kW to W
                 p_dst[(i, j, t)] = P_ij
 
                 # Current magnitude

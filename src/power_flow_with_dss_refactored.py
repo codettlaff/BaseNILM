@@ -336,10 +336,14 @@ class RadialNetwork:
                 dss.Circuit.SetActiveElement(f"Line.{name}")
 
                 powers = dss.CktElement.Powers()
+                P_from = powers[0]  # terminal 1
+                P_to = powers[2]  # terminal 2
+                P_flow = P_from - P_to
+
                 currents = dss.CktElement.Currents()
 
                 # Real Power
-                P_ij = powers[0] * 1e3 # kW to W
+                P_ij = P_flow * 1e3 # kW to W
                 p_dst[(i, j, t)] = P_ij
 
                 # Current magnitude
@@ -401,7 +405,11 @@ class RadialNetwork:
 
         # Extract Voltage Monitor Data
         for i in self.nodes:
-            if i == 0: continue
+            if i == 0:
+                dss.Circuit.SetActiveBus(dss.Circuit.AllBusNames()[0])
+                for t in range(self.T):
+                    V_dst[(i, t)] = dss.Bus.puVmagAngle()[0]
+                continue
             name = f"v_{i}"
             dss.Monitors.Name(name)
             data = dss.Monitors.Channel(1) # Voltage magnitude
@@ -427,7 +435,6 @@ class RadialNetwork:
         # Voltage Drops
         for (i,j) in self.lines:
             for t in range(self.T):
-                if i == 0: V_dst[(i,t)] = self.V0
                 v_dst[(i, j, t)] = V_dst[(i, t)] - V_dst[(j, t)]
 
         # Store Results

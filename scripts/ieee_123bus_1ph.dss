@@ -219,3 +219,9 @@ New load.S113P bus1=113.1 phases=1 conn=wye model=1 kV=2.4018 daily=LS_1
 New load.S114P bus1=114.1 phases=1 conn=wye model=1 kV=2.4018 daily=LS_1
 New load.S115P bus1=115.1 phases=1 conn=wye model=1 kV=2.4018 daily=LS_1
 New load.S116P bus1=116.1 phases=1 conn=wye model=1 kV=2.4018 daily=LS_1
+
+Set mode=Daily
+Set number=10
+Set stepsize=3s
+
+Solve

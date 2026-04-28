@@ -13,7 +13,7 @@ EPSILON_VALUES = np.linspace(50, 1000, 10)
 
 NETWORK_NAME = "network"
 N_NODES = 6
-V0 = 12e3
+V0 = 12e2
 T_SET = 100
 
 ALPHA = 0.0

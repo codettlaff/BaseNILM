@@ -372,6 +372,7 @@ class RadialNetwork:
             self.i = i_dst
             self.p = p_dst
 
+    # This function may not work when system voltage is too high.
     def dss_power_flow_timeseries(self, tilde=False):
 
         V_dst = {}

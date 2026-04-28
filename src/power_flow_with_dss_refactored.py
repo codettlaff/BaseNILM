@@ -379,7 +379,7 @@ class RadialNetwork:
         v_dst = {}
 
         # Export full time-series DSS
-        self.export_to_dss_timeseries(tilde=tilde)
+        self.export_to_dss_timeseries_single_phase(tilde=tilde)
 
         # Compile
         dss.Text.Command("Clear")
@@ -395,10 +395,10 @@ class RadialNetwork:
         # Line Monitors (power + current)
         for (i,j) in self.lines:
             dss.Text.Command(
-                f"New Monitor.P_{i}_{j} element=Line.L_{i}_{j} mode=1 terminal=1"
+                f"New Monitor.P_{i}_{j} element=Line.L_{i}_{j} mode=1 terminal=1" # Power Mode
             )
             dss.Text.Command(
-                f"New Monitor.I_{i}_{j} element=Line.L_{i}_{j} mode=0 terminal=1"
+                f"New Monitor.I_{i}_{j} element=Line.L_{i}_{j} mode=0 terminal=1" # Standard Mode
             )
 
         dss.Text.Command("Solve")
@@ -425,7 +425,10 @@ class RadialNetwork:
 
             # Current
             dss.Monitors.Name(f"i_{i}_{j}")
-            I_mag = dss.Monitors.Channel(7)
+            I_mag = dss.Monitors.Channel(3) # Channel 3 Imag, Channel 4 I Phase
+
+            # Voltage - Method 2 - Same result - Voltage not changing.
+            # V_mag = dss.Monitors.Channel(1)
 
             for t in range(len(p_data)):
                 P_ij = p_data[t] * 1e3 # kW to W

@@ -313,6 +313,7 @@ class RadialNetwork:
         # Solve step-by-step
         for t in range(self.T):
 
+            dss.Text.Command(f"set time=(0, {t*3}")
             dss.Text.Command("Solve")
 
             # Bus Voltages

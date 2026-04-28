@@ -292,7 +292,7 @@ class RadialNetwork:
             if not dss.Lines.Next():
                 break
 
-        self.nodes = nodes
+        self.nodes = list(nodes.keys())
         self.edges = edges
 
     # Solve DSS Power Flow

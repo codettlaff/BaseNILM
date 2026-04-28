@@ -229,6 +229,11 @@ def experiment():
     P, B = load_redd_houses()
     network = build_network(P)
 
+    # IEEE 123 Test
+    ieee123_dss_filepath = os.path.join(os.path.dirname(__file__), 'ieee_123bus_1ph.dss')
+    network.dss_filepath = ieee123_dss_filepath
+    network.build_from_dss_timeseries()
+
     network.export_to_dss_timeseries_single_phase()
     network.build_from_dss_timeseries()
 

@@ -293,7 +293,25 @@ class RadialNetwork:
                 break
 
         self.nodes = list(nodes.keys())
-        self.edges = edges
+        self.T = len(nodes[1]["P"])  # Number of Timesteps
+        self.P = {i: data["P"] for i, data in nodes.items()}  # Copy True Injections
+        self.P_tilde = {i: [0.0] * self.T for i, data in nodes.items()}  # Initialize Noisy Injections
+
+        # Tree Structure
+        self.children = {i: [] for i in self.nodes}  # Initialize Dict
+        self.parent = {}
+        self.lines = []
+
+        # Line Parameters
+        self.r = {}  # Unit Ohms
+        self.x = {}  # Unit Ohms
+
+        for i, j, r_ij, x_ij in edges:
+            self.children[i].append(j)
+            self.parent[j] = i
+            self.lines.append((i, j))
+            self.r[(i, j)] = r_ij
+            self.x[(i, j)] = x_ij
 
     # Solve DSS Power Flow
     def dss_power_flow_step_by_step(self, tilde=False):

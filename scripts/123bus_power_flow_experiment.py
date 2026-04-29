@@ -109,6 +109,8 @@ def assign_houses_to_loads(houses, target_loads, tol=0.10, max_iter=1000):
 
     return assignments, achieved_kw, house_counts
 
+# Instead of returning assignments, a list of the total load vectors
+
 houses = load_redd_houses()
 max_powers = max_power_per_house(houses)
 load_powers = [13.33, 6.67, 35, 70, 46.67, 25, 81.67]

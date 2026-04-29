@@ -1,6 +1,6 @@
 Clear
 New Circuit.network basekv=1.2 pu=1.0 phases=1
-Edit Vsource.Source bus1=bus0.1 phases=1 basekv=1.2 pu=1.0
+Edit Vsource.Source bus1=0.1 phases=1 basekv=1.2 pu=1.0
 New Line.L_0_1 phases=1 bus1=0.1 bus2=1.1 r1=1e-06 x1=1e-06 length=1 units=km
 New Line.L_1_2 phases=1 bus1=1.1 bus2=2.1 r1=0.0232 x1=0.0475 length=1 units=km
 New Line.L_2_3 phases=1 bus1=2.1 bus2=3.1 r1=0.0441 x1=0.0447 length=1 units=km

@@ -232,6 +232,7 @@ class RadialNetwork:
             f.write("\nSolve\n")
 
     def build_from_dss_timeseries(self):
+
         dss.Text.Command("Clear")
         dss.Text.Command(f"compile [{self.dss_filepath}]")
 

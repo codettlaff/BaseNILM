@@ -76,11 +76,10 @@ def load_redd_houses():
 
 def max_power_per_house(houses): return [np.max(house["P"]) for house in houses]
 
-def assign_houses_to_loads(houses, target_loads, tol=0.10, max_iter=1000):
+def assign_houses_to_loads_old(houses, target_loads, tol=0.10, max_iter=1000):
     house_powers_kw = [np.max(h["P"]) / 1000 for h in houses]
 
-    assignments = []
-    achieved_kw = []
+    assignments = {}   # key: max load (kW), value: total load vector
     house_counts = []  # new list
 
     for target in target_loads:
@@ -103,23 +102,86 @@ def assign_houses_to_loads(houses, target_loads, tol=0.10, max_iter=1000):
                 chosen = []
                 iters = 0
 
-        assignments.append(chosen)
-        achieved_kw.append(total)
+        if chosen:
+            total_vector = np.sum([h["P"] for h in chosen], axis=0)
+            max_load = np.max(total_vector) / 1000 # kw
+            assignments[max_load] = total_vector
+
         house_counts.append(len(chosen))  # track number of houses
 
     return assignments, achieved_kw, house_counts
+
+def assign_houses_to_loads(houses, target_loads, tol=0.10, max_iter=1000):
+
+    house_powers_kw = [np.max(h["P"])/1000 for h in houses]
+
+    assignments = {}
+    house_counts = []
+
+    for target in target_loads:
+        lower = target * (1 - tol)
+        upper = target * (1 + tol)
+
+        total = 0.0
+        chosen = []
+        iters = 0
+
+        while total < lower and iters < max_iter:
+            i = random.randrange(len(houses))
+            total += house_powers_kw[i]
+            chosen.append(houses[i])
+            iters += 1
+
+            if total > upper:
+                total = 0.0
+                chosen = []
+
+        if chosen:
+            total_vector = np.sum([h["P"] for h in chosen], axis=0)
+            max_load = np.max(total_vector) / 1000 # kw
+            assignments.setdefault(max_load, []).append(total_vector)
+
+        house_counts.append(len(chosen))
+
+    return assignments, house_counts
 
 # Instead of returning assignments, a list of the total load vectors
 
 houses = load_redd_houses()
 max_powers = max_power_per_house(houses)
-load_powers = [13.33, 6.67, 35, 70, 46.67, 25, 81.67]
-assignments, achieved_kw, house_counts = assign_houses_to_loads(houses, load_powers)
+unique_load_powers = [13.33, 6.67, 35, 70, 46.67, 25, 81.67]
+assignments, house_counts = assign_houses_to_loads(houses, unique_load_powers)
+assignment_keys = np.array(list(assignments.keys()))
 # max powers = [348.08, 38.35, 781.45, 1845.93, 552,18, 313.24]
 
 dss_filepath = os.path.join(os.path.dirname(__file__), 'ieee_123bus_1ph.dss')
 
 network = RadialNetwork(NETWORK_NAME, build_from_dss=True, dss_filepath=dss_filepath)
+
+P_vector = network.P
+load_house_counts = []
+for i, P_time_series in P_vector.items():
+    # skip zero loads
+    if np.allclose(P_time_series, 0):
+        load_house_counts.append(0)
+        continue
+
+    # get target peak (kW)
+    target_peak = np.max(P_time_series) / 1000
+
+    # find closest assignment key
+    idx = np.argmin(np.abs(assignment_keys - target_peak))
+    closest_key = assignment_keys[idx]
+
+    # select one profile from that bucket
+    candidate_profiles = assignments[closest_key]
+    chosen_profile = random.choice(candidate_profiles)
+
+    # scale profile to match original peak
+    scale = np.max(P_time_series) / np.max(chosen_profile)
+    P_vector[i] = chosen_profile * scale
+    load_house_counts.append(house_counts[idx])
+
 network.dss_power_flow_step_by_step(tilde=False)
 network.power_flow_results(display_results=True)
 

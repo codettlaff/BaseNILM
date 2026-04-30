@@ -182,6 +182,9 @@ for i, P_time_series in P_vector.items():
     P_vector[i] = chosen_profile * scale
     load_house_counts.append(house_counts[idx])
 
+network.P = P_vector
+network.export_to_dss_timeseries()
+
 network.dss_power_flow_step_by_step(tilde=False)
 network.power_flow_results(display_results=True)
 

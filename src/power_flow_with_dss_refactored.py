@@ -128,6 +128,8 @@ class RadialNetwork:
 
             f.write("\n")
 
+            load_kw = []
+
             # Load-Shapes
             for i in self.nodes:
                 if i == 0:
@@ -136,13 +138,16 @@ class RadialNetwork:
                 if tilde: series = self.P_tilde[i]
                 else: series = self.P[i]
 
-                mult_str = " ".join(str(p / 1e3) for p in series) # Convert W to kW
+                max_kw = np.max(series) / 1e3
+                load_kw.append(max_kw)
+                series_scaled = series / np.max(series) if np.max(series) != 0 else np.zeros_like(series)
+
+                mult_str = " ".join(str(p) for p in series_scaled)
 
                 f.write(
                     f"New LoadShape.LS_{i} "
                     f"npts={self.T} "
                     f"interval=0.000833 " # For 3s Resolution Data
-                    f"UseActual=Yes "
                     f"Pmult=({mult_str})\n"
                 )
 
@@ -159,7 +164,8 @@ class RadialNetwork:
                     f"conn=wye "
                     f"model=1 "
                     f"kV={self.V0/1e3} "
-                    f"Daily=LS_{i}\n"
+                    f"kW={load_kw[i-1]} "
+                    f"Daily=LS_{i-1}\n"
                 )
 
             f.write("\n")

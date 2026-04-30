@@ -117,6 +117,12 @@ load_powers = [13.33, 6.67, 35, 70, 46.67, 25, 81.67]
 assignments, achieved_kw, house_counts = assign_houses_to_loads(houses, load_powers)
 # max powers = [348.08, 38.35, 781.45, 1845.93, 552,18, 313.24]
 
+dss_filepath = os.path.join(os.path.dirname(__file__), 'ieee_123bus_1ph.dss')
+
+network = RadialNetwork(NETWORK_NAME, build_from_dss=True, dss_filepath=dss_filepath)
+network.dss_power_flow_step_by_step(tilde=False)
+network.power_flow_results(display_results=True)
+
 print('')
 
 # Build Loads

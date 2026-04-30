@@ -14,7 +14,7 @@ from sympy.matrices.benchmarks.bench_matrix import timeit_Matrix__getitem_II
 # This will require dealing with OpenDSS in time-series, rather than for a single timestep.
 
 class RadialNetwork:
-    def __init__(self, name, nodes, edges, V0=12.47e3, alpha=0.0, epsilon=None, B=5e3, dss_filepath='network.dss'):
+    def __init__(self, name, nodes=None, edges=None, V0=12.47e3, alpha=0.0, epsilon=None, B=5e3, build_from_dss=False, dss_filepath='network.dss'):
         """
         nodes: dict {i: {"P": [P_i(t)]}}
         edges: list of (i, j, r_ij, x_ij)
@@ -28,37 +28,42 @@ class RadialNetwork:
         self.name = name
         self.dss_filepath = dss_filepath
 
-        # Time Series
-        self.nodes = list(nodes.keys()) # List of Node Indices
-        self.T = len(nodes[1]["P"]) # Number of Timesteps
-        self.P = {i: data["P"] for i, data in nodes.items()} # Copy True Injections
-        self.P_tilde = {i: [0.0] * self.T for i, data in nodes.items()} # Initialize Noisy Injections
+        if build_from_dss:
+            self.build_from_dss_timeseries()
 
-        # Root Node
-        self.nodes.insert(0, 0)
-        self.P[0] = [0.0] * self.T
+        else:
+
+            # Time Series
+            self.nodes = list(nodes.keys()) # List of Node Indices
+            self.T = len(nodes[1]["P"]) # Number of Timesteps
+            self.P = {i: data["P"] for i, data in nodes.items()} # Copy True Injections
+            self.P_tilde = {i: [0.0] * self.T for i, data in nodes.items()} # Initialize Noisy Injections
+
+            # Root Node
+            self.V0 = V0
+            self.nodes.insert(0, 0)
+            self.P[0] = [0.0] * self.T
+
+            # Tree Structure
+            self.children = {i: [] for i in self.nodes} # Initialize Dict
+            self.parent = {}
+            self.lines = []
+
+            # Line Parameters
+            self.r = {} # Unit Ohms
+            self.x = {} # Unit Ohms
+
+            for i, j, r_ij, x_ij in edges:
+                self.children[i].append(j)
+                self.parent[j] = i
+                self.lines.append((i,j))
+                self.r[(i,j)] = r_ij
+                self.x[(i,j)] = x_ij
 
         # Constants
-        self.V0 = V0
         self.alpha = alpha
         self.epsilon = epsilon
         self.B = B
-
-        # Tree Structure
-        self.children = {i: [] for i in self.nodes} # Initialize Dict
-        self.parent = {}
-        self.lines = []
-
-        # Line Parameters
-        self.r = {} # Unit Ohms
-        self.x = {} # Unit Ohms
-
-        for i, j, r_ij, x_ij in edges:
-            self.children[i].append(j)
-            self.parent[j] = i
-            self.lines.append((i,j))
-            self.r[(i,j)] = r_ij
-            self.x[(i,j)] = x_ij
 
         # Theoretical Error
         self.e_p_th = {} # {(i,j,t): e_p_ij} # Power Flow Error (Theoretical)
@@ -235,6 +240,14 @@ class RadialNetwork:
 
         dss.Text.Command("Clear")
         dss.Text.Command(f"compile [{self.dss_filepath}]")
+
+        # Get Base Voltage of the Source
+        dss.Text.Command("CalcVoltageBases")
+        dss.Vsources.First()
+        bus_full = dss.CktElement.BusNames()[0]
+        bus = bus_full.split('.')[0]
+        dss.Circuit.SetActiveBus(bus)
+        self.V0 = dss.Bus.kVBase() * 1e3
 
         # Map buses to indices
         bus_names = dss.Circuit.AllBusNames()

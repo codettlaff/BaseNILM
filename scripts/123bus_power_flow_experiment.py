@@ -20,6 +20,9 @@ X = 0.01
 
 N_TRIALS = 10
 
+B = 5e3 # HVAC Peak
+# B = 9.6 k# EV Charger Peak
+
 def get_paths():
     base = os.path.join(os.path.dirname(__file__), '..')
     return {
@@ -186,6 +189,27 @@ network.P = P_vector
 network.export_to_dss_timeseries()
 
 network.dss_power_flow_step_by_step(tilde=False)
+network.power_flow_results(display_results=True)
+
+# Differential Privacy
+var = 8 * B**2 / 1000**2
+b = np.sqrt(var)
+
+for i, P_time_series in P_vector.items():
+
+    num_houses = load_house_counts[i]
+
+    for t in range(len(P_time_series)):
+
+        noise_total = 0.0
+
+        for n in range(num_houses):
+            noise_total += np.random.laplace(0, b)
+
+        P_vector[i][t] = P_time_series[t] + noise_total
+
+network.P_tilde = P_vector
+network.dss_power_flow_step_by_step(tilde=True)
 network.power_flow_results(display_results=True)
 
 print('')

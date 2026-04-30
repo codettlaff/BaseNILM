@@ -314,6 +314,78 @@ class RadialNetwork:
             self.r[(i, j)] = r_ij
             self.x[(i, j)] = x_ij
 
+    # Set of all nodes along path from root to node
+    def C(self, i):
+        path = []
+        current = i
+
+        # Walk to root using parent pointers
+        while True:
+            path.append(current)
+            if current == 0:
+                break
+            current = self.parent[current]
+
+        path.reverse()
+        return path
+
+    # Set of all nodes downstream of node i
+    def D(self, i):
+        stack = [i]
+        downstream = []
+        while stack:
+            node = stack.pop()
+            downstream.append(node)
+            stack.extend(self.children.get(node, []))
+        return downstream
+
+    # Set of all lines along path from root to node
+    def L(self, i):
+        path = self.C(i)
+        return [(path[k], path[k + 1]) for k in range(len(path) - 1)]
+
+    # LinDist Power Flow
+    def lin_dist_power_flow(self, tilde=False):
+
+        V_dst = {}
+        p_dst = {}
+        i_dst = {}
+        v_dst = {}
+
+        for t in range(self.T):
+
+            for (i,j) in self.lines:
+
+                # Branch Power Flow
+                p_ij = sum(self.P[h][t] for h in self.D(j))
+                p_dst[(i, j, t)] = p_ij
+
+                # Voltage Drop
+                beta = self.r[(i, j)] + self.alpha * self.x[(i, j)]
+                v_ij = beta * p_ij
+                v_dst[(i, j, t)] = v_ij
+
+                # Branch Current Flow
+                z = beta / (self.r[(i, j)] + self.x[(i, j)])
+                i_ij = z * p_ij
+                i_dst[(i, j, t)] = i_ij
+
+        for i in self.nodes:
+            drops = sum(v_dst[(k, j, t)] for (k, j) in self.L(i))
+            V_dst[(i, t)] = self.V0 - drops
+
+        if tilde:
+            self.V_tilde = V_dst
+            self.p_tilde = p_dst
+            self.i_tilde = i_dst
+            self.v_tilde = v_dst
+
+        if not tilde:
+            self.V = V_dst
+            self.p = p_dst
+            self.i = i_dst
+            self.v = v_dst
+
     # Solve DSS Power Flow
     def dss_power_flow_step_by_step(self, tilde=False):
 

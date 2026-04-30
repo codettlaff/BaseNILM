@@ -276,10 +276,12 @@ class RadialNetwork:
             bus = dss.CktElement.BusNames()[0].split(".")[0]
             i = bus_map[bus]
 
+            load_peak_kw = dss.Loads.kW()
             shape_name = dss.Loads.Daily()
             dss.LoadShape.Name(shape_name)
 
-            kw = dss.LoadShape.PMult()
+            kw = [load_peak_kw * s for s in dss.LoadShape.PMult()]
+
             for t in range(T):
                 nodes[i]["P"] = [p * 1e3 for p in kw] # kW to W
 

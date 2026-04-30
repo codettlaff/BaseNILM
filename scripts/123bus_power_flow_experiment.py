@@ -149,7 +149,7 @@ def assign_houses_to_loads(houses, target_loads, tol=0.10, max_iter=1000):
 
 houses = load_redd_houses()
 max_powers = max_power_per_house(houses)
-unique_load_powers = [13.33, 6.67, 35, 70, 46.67, 25, 81.67]
+unique_load_powers = [13.33, 6.67, 35, 46.67, 25]
 assignments, house_counts = assign_houses_to_loads(houses, unique_load_powers)
 assignment_keys = np.array(list(assignments.keys()))
 # max powers = [348.08, 38.35, 781.45, 1845.93, 552,18, 313.24]

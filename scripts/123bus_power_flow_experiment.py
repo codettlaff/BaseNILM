@@ -212,6 +212,9 @@ network.P_tilde = P_vector
 network.dss_power_flow_step_by_step(tilde=True)
 network.power_flow_results(display_results=True, tilde=True)
 
+network.epsilon = 1000
+network.compute_theoretical_accuracy()
+
 print('')
 
 # Build Loads

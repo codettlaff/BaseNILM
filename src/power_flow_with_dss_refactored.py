@@ -556,3 +556,41 @@ class RadialNetwork:
             df_lines.to_csv(lines_csv_filepath)
         if return_results: return df_nodes, df_lines
 
+    def compute_theoretical_accuracy(self):
+
+        acc_p_bound_num = 0
+        acc_p_bound_den = 0
+        acc_i_bound_num = 0
+        acc_i_bound_den = 0
+
+        sigma_p = {}
+        sigma_i = {}
+        sigma_V = []
+
+        for t in range(self.T):
+
+            for (i,j) in self.lines:
+
+                sum = 0.0
+                for h in self.D(j):
+                    sum += self.B**2
+
+                sigma_p[(i,j,t)] = (np.sqrt(8) / self.epsilon) * np.sqrt(sum)
+
+                r_ij = self.r[(i, j)]
+                x_ij = self.x[(i, j)]
+
+                sigma_i[(i, j, t)] = (r_ij + self.alpha * x_ij) / (r_ij + x_ij) * sigma_p[(i,j,t)]
+
+            for i in self.nodes:
+                beta = 0.0
+                var = 0.0
+                for j in self.L(i):
+                    for h in self.D(j):
+                        r_ij = self.r[(i, j)]
+                        x_ij = self.x[(i, j)]
+                        beta += (r_ij + self.alpha * x_ij)
+                        var += (8 * beta**2 * self.B**2) / self.epsilon**2
+                sigma_V.append(np.sqrt(var))
+
+        print('')

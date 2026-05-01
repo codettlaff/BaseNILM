@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 
 from data.loadData import load_data, process_data
 from power_flow import RadialNetwork
@@ -130,28 +131,55 @@ def setup():
 
     return P, B, T
 
+# Format for IEEE Paper
+# Remove Title
+# All fonts 12 pt. Times New Roman
+# Recommended aspect ratio: ~4:3
 def plot_accuracy_vs_epsilon(acc_th_bound, acc_th_exp, acc_emp,
                              plot_title, plot_logarithmic=False,
                              display_plot=False, save_plot=False, save_folderpath=None):
 
-    plt.figure()
-
-    plt.plot(EPSILON_VALUES, acc_th_bound, marker='o', label='Theoretical Bound')
-    plt.plot(EPSILON_VALUES, acc_th_exp, marker='s', label='Theoretical Expected')
-    plt.plot(EPSILON_VALUES, acc_emp, marker='^', label='Empirical')
+    # ============================================================
+    # IEEE FORMATTING (global rcParams)
+    # ============================================================
+    rcParams.update({
+        "font.family": "serif",
+        "font.serif": ["Times New Roman"],
+        "font.size": 12,
+        "axes.labelsize": 12,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+    })
 
     # ============================================================
-    # LOG SCALE OPTION
+    # FIGURE SIZE (single-column ~4:3)
     # ============================================================
+    fig = plt.figure(figsize=(3.5, 2.6))  # inches
+
+    # ============================================================
+    # PLOT
+    # ============================================================
+    plt.plot(EPSILON_VALUES, acc_th_bound, marker='o', linewidth=1.5, label='Theoretical Bound')
+    plt.plot(EPSILON_VALUES, acc_th_exp, marker='s', linewidth=1.5, label='Theoretical Expected')
+    plt.plot(EPSILON_VALUES, acc_emp, marker='^', linewidth=1.5, label='Empirical')
+
+    # Log scale (optional)
     if plot_logarithmic:
         plt.xscale('log')
 
+    # Labels (no title for IEEE figures)
     plt.xlabel("Epsilon (Privacy Parameter)")
     plt.ylabel("Accuracy")
-    plt.title(plot_title)
 
-    plt.legend()
-    plt.grid(which='both', linestyle='--', linewidth=0.5)
+    # Legend (compact, no frame)
+    plt.legend(frameon=False, loc='best')
+
+    # Grid (light, unobtrusive)
+    plt.grid(True, which='both', linestyle='--', linewidth=0.5, alpha=0.7)
+
+    # Tight layout to avoid clipping
+    plt.tight_layout()
 
     # ============================================================
     # SAVE PLOT
@@ -166,15 +194,19 @@ def plot_accuracy_vs_epsilon(acc_th_bound, acc_th_exp, acc_emp,
         if plot_logarithmic:
             filename += "_log"
 
-        filepath = os.path.join(save_folderpath, f"{filename}.png")
+        filepath = os.path.join(save_folderpath, f"{filename}.pdf")
 
-        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        # Save as vector (preferred for IEEE)
+        plt.savefig(filepath, bbox_inches='tight')
         print(f"Plot saved to: {filepath}")
 
+    # ============================================================
+    # DISPLAY / CLOSE
+    # ============================================================
     if display_plot:
         plt.show()
     else:
-        plt.close()
+        plt.close(fig)
 
 def experiment():
 

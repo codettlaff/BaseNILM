@@ -210,7 +210,7 @@ for i, P_time_series in P_vector.items():
 
 network.P_tilde = P_vector
 network.dss_power_flow_step_by_step(tilde=True)
-network.power_flow_results(display_results=True)
+network.power_flow_results(display_results=True, tilde=True)
 
 print('')
 

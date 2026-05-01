@@ -502,15 +502,28 @@ class RadialNetwork:
             self.p = p_dst
 
     def power_flow_results(self, t=0, return_results=False, display_results=False, write_csv=False,
-                           results_folderpath=None):
+                           results_folderpath=None, tilde=False):
+
+        if tilde:
+            V_src = self.V_tilde
+            P_src = self.P_tilde
+            i_src = self.i_tilde
+            p_src = self.p_tilde
+            v_src = self.v_tilde
+        else:
+            V_src = self.V
+            P_src = self.P
+            i_src = self.i
+            p_src = self.p
+            v_src = self.v
 
         # Node Table
         node_data = []
         for i in self.nodes:
             node_data.append({
                 "node": i,
-                "V": self.V.get((i, t), None),
-                "P_injection": self.P[i][t]
+                "V": V_src[(i, t)],
+                "P_injection": P_src[i][t],
             })
         df_nodes = pd.DataFrame(node_data).sort_values(by="node")
 
@@ -522,9 +535,9 @@ class RadialNetwork:
                 "to": j,
                 "r": self.r[(i, j)],
                 "x": self.x[(i, j)],
-                "p_flow": self.p.get((i, j, t), None),
-                "i_flow": self.i.get((i, j, t), None),
-                "v_drop": self.v.get((i, j, t), None),
+                "p_flow": p_src[(i, j, t)],
+                "i_flow": i_src[(i, j, t)],
+                "v_drop": v_src[(i, j, t)],
             })
         df_lines = pd.DataFrame(line_data).sort_values(by=["from", "to"])
 
@@ -542,3 +555,4 @@ class RadialNetwork:
             df_nodes.to_csv(nodes_csv_filepath)
             df_lines.to_csv(lines_csv_filepath)
         if return_results: return df_nodes, df_lines
+

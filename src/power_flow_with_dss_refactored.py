@@ -562,10 +562,12 @@ class RadialNetwork:
         acc_p_bound_den = 0
         acc_i_bound_num = 0
         acc_i_bound_den = 0
+        acc_v_bound_num = 0
+        acc_v_bound_den = 0
 
         sigma_p = {}
         sigma_i = {}
-        sigma_V = []
+        sigma_V = {}
 
         for t in range(self.T):
 
@@ -582,15 +584,28 @@ class RadialNetwork:
 
                 sigma_i[(i, j, t)] = (r_ij + self.alpha * x_ij) / (r_ij + x_ij) * sigma_p[(i,j,t)]
 
+                acc_p_bound_num = acc_p_bound_num + sigma_p[(i,j,t)]
+                acc_p_bound_den = acc_p_bound_den + self.p[(i, j, t)]
+                acc_i_bound_num = acc_i_bound_num + sigma_i[(i, j, t)]
+                acc_i_bound_den = acc_i_bound_den + self.i[(i, j, t)]
+
             for i in self.nodes:
                 beta = 0.0
                 var = 0.0
-                for j in self.L(i):
+                for (i,j) in self.L(i):
                     for h in self.D(j):
                         r_ij = self.r[(i, j)]
                         x_ij = self.x[(i, j)]
                         beta += (r_ij + self.alpha * x_ij)
                         var += (8 * beta**2 * self.B**2) / self.epsilon**2
-                sigma_V.append(np.sqrt(var))
 
-        print('')
+                sigma_V[(i,t)] = np.sqrt(var)
+
+                acc_v_bound_num = acc_v_bound_num + sigma_V[(i,t)]
+                acc_v_bound_den = acc_v_bound_den + self.V[(i,t)]
+
+        acc_p_bound = acc_p_bound_num / (2 * acc_p_bound_den)
+        acc_i_bound = acc_i_bound_num / (2 * acc_i_bound_den)
+        acc_v_bound = acc_v_bound_num / (2 * acc_v_bound_den)
+
+        return acc_p_bound, acc_i_bound, acc_v_bound

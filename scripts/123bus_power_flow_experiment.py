@@ -213,7 +213,7 @@ network.dss_power_flow_step_by_step(tilde=True)
 network.power_flow_results(display_results=True, tilde=True)
 
 network.epsilon = 1000
-network.compute_theoretical_accuracy()
+acc_p_bound, acc_i_bound, acc_v_bound = network.compute_theoretical_accuracy()
 
 print('')
 

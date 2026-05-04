@@ -164,13 +164,13 @@ def plot_results_with_bound():
         f for f in os.listdir(paths["experiment_results"])
         if f.endswith("_results.csv")
     ]
+
     results_folderpath = os.path.join(paths["results"], EXPERIMENT_NAME)
-    if not os.path.exists(results_folderpath): os.makedirs(results_folderpath)
+    os.makedirs(results_folderpath, exist_ok=True)
 
     for results_file in result_files:
 
         data_file_name = results_file.replace("_results.csv", "")
-
         results_filepath = os.path.join(paths["experiment_results"], results_file)
 
         # --- Load experiment results ---
@@ -182,12 +182,8 @@ def plot_results_with_bound():
             (results_df['agg_EACC'] <= 1)
         ]
 
-        # --- Try to load original data ONLY if needed ---
-        # (still required for theoretical bound)
-        redd_filepath = os.path.join(
-            paths["redd"],
-            f"{data_file_name}.mat"
-        )
+        # --- Load data (needed for theoretical bound) ---
+        redd_filepath = os.path.join(paths["redd"], f"{data_file_name}.mat")
 
         data = process_data(load_data(redd_filepath), "redd")
 
@@ -199,12 +195,19 @@ def plot_results_with_bound():
         epsilon_min = results_df['epsilon'].min()
         epsilon_max = results_df['epsilon'].max()
 
-        # --- Plot ---
+        # ============================================================
+        # IEEE-COMPLIANT OUTPUT (vector PDF, no PNG)
+        # ============================================================
         plot_filepath = os.path.join(
             results_folderpath,
-            f"{data_file_name}_eacc_plot.png"
+            f"{data_file_name}_eacc_plot.pdf"
         )
 
+        # Delegate to plotting function (should already use:
+        # - figsize=(3.5, 2.6)
+        # - Times New Roman
+        # - no title
+        # - tight_layout()
         plot_results_with_theoretical_bound(
             results_df,
             epsilon_min,
@@ -213,7 +216,7 @@ def plot_results_with_bound():
             B,
             sum_y,
             plot_filepath,
-            show_plot=True
+            show_plot=False  # avoid interactive scaling inconsistencies
         )
 
         print(f"Plotted: {data_file_name}")

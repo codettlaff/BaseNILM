@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import matplotlib.pyplot as plt
+from matplotlib import rcParams
 
 from data.loadData import load_data, process_data
 from power_flow import RadialNetwork
@@ -139,6 +140,20 @@ def plot_accuracy(eps, th_bound, th_exp, emp, title, save_path=None):
 
 
 def plot_error_vs_distance(network, show=False, save=False, save_path=None):
+
+    # ============================================================
+    # IEEE FORMATTING
+    # ============================================================
+    rcParams.update({
+        "font.family": "serif",
+        "font.serif": ["Times New Roman"],
+        "font.size": 10,
+        "axes.labelsize": 10,
+        "legend.fontsize": 10,
+        "xtick.labelsize": 10,
+        "ytick.labelsize": 10,
+    })
+
     exp_by_d, norm_by_d = {}, {}
 
     for t in range(network.T):
@@ -162,37 +177,49 @@ def plot_error_vs_distance(network, show=False, save=False, save_path=None):
     exp_avg = [np.mean(exp_by_d[d]) for d in distances]
     norm_avg = [np.mean(norm_by_d[d]) for d in distances]
 
-    plt.figure()
-    plt.plot(distances, exp_avg, 'o-', label="Theoretical Error")
-    plt.plot(distances, norm_avg, 's-', label="Empirical Error")
+    # ============================================================
+    # FIGURE SIZE (~4:3, single column)
+    # ============================================================
+    fig = plt.figure(figsize=(3.5, 2.6))
+
+    # ============================================================
+    # PLOT
+    # ============================================================
+    plt.plot(distances, exp_avg, 'o-', linewidth=1.5, label="Theoretical Error")
+    plt.plot(distances, norm_avg, 's-', linewidth=1.5, label="Empirical Error")
+
     plt.xlabel("Distance from Root")
     plt.ylabel("Error")
-    plt.title("Error vs Distance")
-    plt.legend()
-    plt.grid(True)
 
-    # -----------------------------
-    # Save option
-    # -----------------------------
+    # No title (IEEE convention)
+    plt.legend(frameon=False, loc='best')
+
+    plt.grid(True, linestyle='--', linewidth=0.5, alpha=0.7)
+
+    plt.tight_layout()
+
+    # ============================================================
+    # SAVE
+    # ============================================================
     if save:
         if save_path is None:
             save_path = "."
 
         os.makedirs(save_path, exist_ok=True)
 
-        filename = "error_vs_distance.png"
-        filepath = os.path.join(save_path, filename)
+        filepath = os.path.join(save_path, "error_vs_distance.pdf")
 
-        plt.savefig(filepath, dpi=300, bbox_inches='tight')
+        # Vector format preferred
+        plt.savefig(filepath, bbox_inches='tight')
         print(f"Plot saved to: {filepath}")
 
-    # -----------------------------
-    # Show / close
-    # -----------------------------
+    # ============================================================
+    # SHOW / CLOSE
+    # ============================================================
     if show:
         plt.show()
     else:
-        plt.close()
+        plt.close(fig)
 
 
 # ============================================================

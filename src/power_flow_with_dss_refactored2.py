@@ -19,6 +19,18 @@ class RadialNetwork:
 
         self.build_from_dss()
 
+        # True Power Flow Results
+        self.p = {}  # {(i,j,t): P_ij(t)} Branch power flow
+        self.i = {}  # {(i,j,t): i_ij(t)} Branch current flow
+        self.V = {}  # {(i,t): V_i(t)} Node Voltage Magnitude
+        self.v = {}  # {(i,j,t): v_ij(t)} Squared Node Voltage Magnitude
+
+        # Noisy Power Flow Results
+        self.p_tilde = {}  # {(i,j,t): P_ij(t)} Branch power flow
+        self.i_tilde = {}  # {(i,j,t): i_ij(t)} Branch current flow
+        self.V_tilde = {}  # {(i,t): V_i(t)} Node Voltage Magnitude
+        self.v_tilde = {}  # {(i,j,t): v_ij(t)} Squared Node Voltage Magnitude
+
     def build_from_dss(self):
 
         dss.Text.Command("Clear")

@@ -1,12 +1,14 @@
 import os
 import numpy as np
 import random
+import matplotlib.pyplot as plt
 
 from data.loadData import load_data, process_data
 from power_flow_with_dss_refactored2 import RadialNetwork
 
 EXPERIMENT_NAME = "ieee_123_single_phase_power_flow"
 EPSILON_VALUES = np.linspace(50, 1000, 10)
+EPSILON = 1000
 
 NETWORK_NAME = "redd_house_neighborhood"
 N_NODES = 6
@@ -76,10 +78,18 @@ def assign_houses_to_load(houses, desired_load_power):
 
     return num_houses, load_profile
 
+def make_private_load_profile(load_profile, num_houses, B, epsilon):
+
+    b = 2 * B / epsilon
+    noise = np.random.laplace(0, b, size=(num_houses, len(load_profile)))
+    noisy_load_profile = load_profile + noise.sum(axis=0)
+    return noisy_load_profile
+
 # Read Original IEEE123 Bus Files
 paths = get_paths()
 ieee123_bus_original_filepath = os.path.join(paths["ieee_123bus"], 'Master.dss')
 ieee123_bus_modified_filepath = os.path.join(paths["scripts"], f'{NETWORK_NAME}.dss')
+ieee123_bus_modified_private_filepath = os.path.join(paths["scripts"], f'{NETWORK_NAME}_private.dss')
 
 network = RadialNetwork(name=NETWORK_NAME, dss_filepath=ieee123_bus_original_filepath)
 
@@ -87,11 +97,21 @@ houses = load_redd_houses()
 
 P_loads_original = network.P
 P_loads_modified = {}
+P_tilde = {}
+mean_norm_errors = []
+num_houses_list = []
 for node, profile in P_loads_original.items():
     desired_load = np.max(profile)
     num_houses, load_profile = assign_houses_to_load(houses, desired_load)
+    num_houses_list.append(num_houses)
     P_loads_modified[node] = load_profile
+    P_tilde[node] = make_private_load_profile(load_profile, num_houses, B, EPSILON)
 
-num_houses, load_profile = assign_houses_to_load(houses, 1.5*1e3)
+network.P = P_loads_modified
+network.P_tilde = P_tilde
+network.dss_filepath = ieee123_bus_modified_filepath
+network.export_to_dss(tilde=False)
+network.dss_filepath = ieee123_bus_modified_private_filepath
+network.export_to_dss(tilde=True)
 
 print('')

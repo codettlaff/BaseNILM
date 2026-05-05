@@ -124,7 +124,7 @@ class RadialNetwork:
             self.r[(i, j)] = r_ij
             self.x[(i, j)] = x_ij
 
-    def export_to_dss_timeseries(self, tilde=False):
+    def export_to_dss(self, tilde=False):
         with open(self.dss_filepath, 'w') as f:
 
             # Circuit Definition

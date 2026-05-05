@@ -35,7 +35,6 @@ def get_paths():
     }
 
 def load_redd_houses():
-
     paths = get_paths()
 
     files = [
@@ -44,75 +43,38 @@ def load_redd_houses():
         if f.endswith(".mat") and "HF" not in f
     ]
 
-    raw_data = []
-    lengths = []
-
-    # Load and Pre-Process
-    for k in range(6):
-
-        data = process_data(load_data(files[k]), "redd")
-
-        if T_SET:
-            data = {
-                "Y": data["Y"][:T_SET],
-                "X": data["X"][:,:T_SET],
-            }
-
-        raw_data.append(data)
-        lengths.append(len(data["Y"]))
-
     houses = []
 
-    for data in raw_data:
-
-        Y = data["Y"]
-        X = data["X"]
-
-        P = Y
-        B = np.max(X, axis=0)
-
-        houses.append({
-            "P": P,
-            "B": B
-        })
+    for k in range(6):
+        data = process_data(load_data(files[k]), "redd")
+        P = data["Y"]
+        if T_SET:
+            P = P[:T_SET]
+        houses.append(P) # List of 1D Numpy Arrays
 
     return houses
 
-def max_power_per_house(houses): return [np.max(house["P"]) for house in houses]
+def assign_houses_to_load(houses, desired_load_power):
 
-def assign_houses_to_loads(houses, target_loads, tol=0.10, max_iter=1000):
+    num_houses = 0
+    n = len(houses[0])
+    load_profile = np.zeros(n)
 
-    house_powers_kw = [np.max(h["P"])/1000 for h in houses]
+    while np.max(load_profile) < desired_load_power:
+        i = random.randrange(len(houses))
+        temp_profile = load_profile + houses[i]
+        temp = np.max(temp_profile)
+        if temp > desired_load_power:
+            num_houses += 1
+            factor = desired_load_power / np.max(temp)
+            scaled_load_profile = houses[i] * factor
+            load_profile = load_profile + scaled_load_profile
+            break
+        else:
+            num_houses += 1
+            load_profile += houses[i]
 
-    assignments = {}
-    house_counts = []
-
-    for target in target_loads:
-        lower = target * (1 - tol)
-        upper = target * (1 + tol)
-
-        total = 0.0
-        chosen = []
-        iters = 0
-
-        while total < lower and iters < max_iter:
-            i = random.randrange(len(houses))
-            total += house_powers_kw[i]
-            chosen.append(houses[i])
-            iters += 1
-
-            if total > upper:
-                total = 0.0
-                chosen = []
-
-        if chosen:
-            total_vector = np.sum([h["P"] for h in chosen], axis=0)
-            max_load = np.max(total_vector) / 1000 # kw
-            assignments.setdefault(max_load, []).append(total_vector)
-
-        house_counts.append(len(chosen))
-
-    return assignments, house_counts
+    return num_houses, load_profile
 
 # Read Original IEEE123 Bus Files
 paths = get_paths()
@@ -122,6 +84,7 @@ ieee123_bus_modified_filepath = os.path.join(paths["scripts"], f'{NETWORK_NAME}.
 network = RadialNetwork(name=NETWORK_NAME, dss_filepath=ieee123_bus_original_filepath)
 
 houses = load_redd_houses()
-max_powers = max_power_per_house(houses)
+
+num_houses, load_profile = assign_houses_to_load(houses, 1.5*1e3)
 
 print('')

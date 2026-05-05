@@ -85,6 +85,13 @@ network = RadialNetwork(name=NETWORK_NAME, dss_filepath=ieee123_bus_original_fil
 
 houses = load_redd_houses()
 
+P_loads_original = network.P
+P_loads_modified = {}
+for node, profile in P_loads_original.items():
+    desired_load = np.max(profile)
+    num_houses, load_profile = assign_houses_to_load(houses, desired_load)
+    P_loads_modified[node] = load_profile
+
 num_houses, load_profile = assign_houses_to_load(houses, 1.5*1e3)
 
 print('')

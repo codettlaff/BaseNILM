@@ -177,7 +177,7 @@ class RadialNetwork:
                 Q_series_scaled = Q_series / np.max(Q_series) if np.max(Q_series) != 0 else np.zeros_like(Q_series)
 
                 P_mult_str = " ".join(str(p) for p in P_series_scaled)
-                Q_mult_str = " ".join(str(p) for q in Q_series_scaled)
+                Q_mult_str = " ".join(str(q) for q in Q_series_scaled)
 
                 f.write(
                     f"New LoadShape.LS_{i} "

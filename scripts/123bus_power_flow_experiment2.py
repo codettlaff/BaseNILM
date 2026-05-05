@@ -96,19 +96,30 @@ network = RadialNetwork(name=NETWORK_NAME, dss_filepath=ieee123_bus_original_fil
 houses = load_redd_houses()
 
 P_loads_original = network.P
+Q_loads_original = network.Q
 P_loads_modified = {}
+Q_loads_modified = {}
 P_tilde = {}
+Q_tilde = {}
 mean_norm_errors = []
 num_houses_list = []
 for node, profile in P_loads_original.items():
+
     desired_load = np.max(profile)
+    Q_max = np.max(Q_loads_original[node])
+    alpha = 0.0 if np.isclose(desired_load, 0.0) else Q_max / desired_load
+
     num_houses, load_profile = assign_houses_to_load(houses, desired_load)
     num_houses_list.append(num_houses)
     P_loads_modified[node] = load_profile
+    Q_loads_modified[node] = load_profile * alpha
     P_tilde[node] = make_private_load_profile(load_profile, num_houses, B, EPSILON)
+    Q_tilde[node] = P_tilde[node] * alpha
 
 network.P = P_loads_modified
+network.Q = Q_loads_modified
 network.P_tilde = P_tilde
+network.Q_tilde = Q_tilde
 network.dss_filepath = ieee123_bus_modified_filepath
 network.export_to_dss(tilde=False)
 network.dss_filepath = ieee123_bus_modified_private_filepath

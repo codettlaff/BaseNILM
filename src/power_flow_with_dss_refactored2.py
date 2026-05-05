@@ -24,15 +24,19 @@ class RadialNetwork:
 
         # True Power Flow Results
         self.p = {}  # {(i,j,t): P_ij(t)} Branch power flow
-        self.i = {}  # {(i,j,t): i_ij(t)} Branch current flow
         self.V = {}  # {(i,t): V_i(t)} Node Voltage Magnitude
-        self.v = {}  # {(i,j,t): v_ij(t)} Squared Node Voltage Magnitude
 
         # Noisy Power Flow Results
         self.p_tilde = {}  # {(i,j,t): P_ij(t)} Branch power flow
-        self.i_tilde = {}  # {(i,j,t): i_ij(t)} Branch current flow
         self.V_tilde = {}  # {(i,t): V_i(t)} Node Voltage Magnitude
-        self.v_tilde = {}  # {(i,j,t): v_ij(t)} Squared Node Voltage Magnitude
+
+        # Empirical Accuracy Results
+        self.e_p = {}
+        self.e_p_norm = {}
+        self.e_V = {}
+        self.e_V_norm = {}
+        self.p_acc = {}
+        self.V_acc = {}
 
     def build_from_dss(self):
 
@@ -392,3 +396,27 @@ class RadialNetwork:
             df_lines.to_csv(lines_csv_filepath, index=False)
 
         if return_results: return df_nodes, df_lines
+
+    def empirical_accuracy(self):
+
+        self.e_p = {k: np.abs(self.p_tilde[k] - self.p[k]) for k in self.p}
+        self.e_V = {k: np.abs(self.V_tilde[k] - self.V[k]) for k in self.V}
+
+        self.e_p_norm = {
+            k: (np.zeros_like(self.e_p[k]) if np.max(self.p[k]) == 0 else self.e_p[k] / np.max(self.p[k]))
+            for k in self.e_p}
+
+        self.e_V_norm = {
+            k: (np.zeros_like(self.e_V[k]) if np.max(self.V[k]) == 0 else self.e_V[k] / np.max(self.V[k]))
+            for k in self.e_V
+        }
+
+        total_e_p = sum(self.e_p.values())
+        total_p = sum(self.p.values())
+        self.p_acc = 1 - (total_e_p / (2 * total_p))
+
+        total_e_V = sum(self.e_V.values())
+        total_V = sum(self.V.values())
+        self.V_acc = 1 - (total_e_V / (2 * total_V))
+
+        print('')

@@ -131,7 +131,9 @@ network.export_to_dss(tilde=True)
 network.solve_dss(tilde=False)
 network.solve_dss(tilde=True)
 
-network.power_flow_results(show=True, tilde=False)
-network.power_flow_results(show=True, tilde=True)
+#network.power_flow_results(show=True, tilde=False)
+#network.power_flow_results(show=True, tilde=True)
+
+network.empirical_accuracy()
 
 print('')

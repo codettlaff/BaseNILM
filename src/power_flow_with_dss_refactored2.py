@@ -192,3 +192,49 @@ class RadialNetwork:
             f.write(f"Set number={self.T}\n")
             f.write(f"Set stepsize=3s\n") # Adjust if needed (should equal time resolution of load data).
             f.write(f"\nSolve\n")
+
+    # Set of all nodes along path from root to node
+    def C(self, i):
+        path = []
+        current = i
+
+        # Walk to root using parent pointers
+        while True:
+            path.append(current)
+            if current == 0:
+                break
+            current = self.parent[current]
+
+        path.reverse()
+        return path
+
+    # Set of all nodes downstream of node i
+    def D(self, i):
+        stack = [i]
+        downstream = []
+        while stack:
+            node = stack.pop()
+            downstream.append(node)
+            stack.extend(self.children.get(node, []))
+        return downstream
+
+    # Set of all lines along path from root to node
+    def L(self, i):
+        path = self.C(i)
+        return [(path[k], path[k + 1]) for k in range(len(path) - 1)]
+
+    def lin_dist_flow(self, tilde=False):
+
+        v_drop = {} # |V_j|^2 - |V_i|^2
+        v_dst = {}
+        p_dst = {}
+
+        for t in range(self.T):
+
+            for (i,j) in self.lines:
+
+                p_ij = sum(self.P[h][t] for h in self.D(j))
+                p_dst[(i, j, t)] = p_ij
+
+                r_ij = self.r[(i, j)]
+                x_ij = self.x[(i, j)]

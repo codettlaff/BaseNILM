@@ -14,6 +14,9 @@ class RadialNetwork:
 
         self.nodes = []
         self.P = {}
+        self.P_tilde = {}
+        self.Q = {}
+        self.Q_tilde = {}
         self.children = {}
         self.parent = {}
 
@@ -61,7 +64,7 @@ class RadialNetwork:
 
         # Initialize nodes with zero time-series
         nodes = {
-            i: {"P": [0.0] * T}
+            i: {"P": [0.0] * T, "Q": [0.0] * T}
             for i in bus_map.values()
         }
 
@@ -72,13 +75,16 @@ class RadialNetwork:
             i = bus_map[bus]
 
             load_peak_kw = dss.Loads.kW()
+            load_peak_kvar = dss.Loads.kvar()
             shape_name = dss.Loads.Daily()
             dss.LoadShape.Name(shape_name)
 
             kw = [load_peak_kw * s for s in dss.LoadShape.PMult()]
+            kvar = [load_peak_kvar * s for s in dss.LoadShape.PMult()]
 
             for t in range(T):
                 nodes[i]["P"] = [p * 1e3 for p in kw]  # kW to W
+                nodes[i]["Q"] = [q * 1e3 for q in kvar]  # kvar to Var
 
             if not dss.Loads.Next():
                 break
@@ -106,7 +112,9 @@ class RadialNetwork:
         self.nodes = list(nodes.keys())
         self.T = len(nodes[1]["P"])  # Number of Timesteps
         self.P = {i: data["P"] for i, data in nodes.items()}  # Copy True Injections
+        self.Q = {i: data["Q"] for i, data in nodes.items()}  # Copy True Injections
         self.P_tilde = {i: [0.0] * self.T for i, data in nodes.items()}  # Initialize Noisy Injections
+        self.Q_tilde = {i: [0.0] * self.T for i, data in nodes.items()} # Initialize Noisy Injections
 
         # Tree Structure
         self.children = {i: [] for i in self.nodes}  # Initialize Dict
@@ -146,26 +154,37 @@ class RadialNetwork:
             f.write("\n")
 
             load_kw = []
+            load_kvar = []
 
             # Load-Shapes
             for i in self.nodes:
                 if i == 0:
                     continue
 
-                if tilde: series = self.P_tilde[i]
-                else: series = self.P[i]
+                if tilde:
+                    P_series = self.P_tilde[i]
+                    Q_series = self.Q_tilde[i]
+                else:
+                    P_series = self.P[i]
+                    Q_series = self.Q[i]
 
-                max_kw = np.max(series) / 1e3
+                max_kw = np.max(P_series) / 1e3
                 load_kw.append(max_kw)
-                series_scaled = series / np.max(series) if np.max(series) != 0 else np.zeros_like(series)
+                P_series_scaled = P_series / np.max(P_series) if np.max(P_series) != 0 else np.zeros_like(P_series)
 
-                mult_str = " ".join(str(p) for p in series_scaled)
+                max_kvar = np.max(Q_series) / 1e3
+                load_kvar.append(max_kvar)
+                Q_series_scaled = Q_series / np.max(Q_series) if np.max(Q_series) != 0 else np.zeros_like(Q_series)
+
+                P_mult_str = " ".join(str(p) for p in P_series_scaled)
+                Q_mult_str = " ".join(str(p) for q in Q_series_scaled)
 
                 f.write(
                     f"New LoadShape.LS_{i} "
                     f"npts={self.T} "
                     f"interval=0.000833 " # For 3s Resolution Data
-                    f"Pmult=({mult_str})\n"
+                    f"Pmult=({P_mult_str})\n"
+                    f"Qmult=({Q_mult_str})\n"
                 )
 
             f.write("\n")
@@ -182,6 +201,7 @@ class RadialNetwork:
                     f"model=1 "
                     f"kV={self.V0/1e3} "
                     f"kW={load_kw[i-1]} "
+                    f'kvar={load_kvar[i-1]} '
                     f"Daily=LS_{i}\n"
                 )
 

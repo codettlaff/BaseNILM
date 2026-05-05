@@ -318,8 +318,11 @@ class RadialNetwork:
 
             dss.Monitors.Name(f"P_{i}_{j}")
             p_data = dss.Monitors.Channel(1)
+            q_data = dss.Monitors.Channel(2)
             for t, p in enumerate(p_data):
                 p_dst[(i, j, t)] = p
+            for t, q in enumerate(q_data):
+                q_dst[(i, j, t)] = - q
 
             dss.Monitors.Name(f"V_{i}_{j}")
             V_data = dss.Monitors.Channel(1)
@@ -329,9 +332,11 @@ class RadialNetwork:
         if tilde:
             self.V_tilde = V_dst
             self.p_tilde = p_dst
+            self.q_tilde = q_dst
         else:
             self.V = V_dst
             self.p = p_dst
+            self.q = q_dst
 
     def power_flow_results(self, t=0, return_results=False, show=False, csv_folderpath=None, tilde=False):
 

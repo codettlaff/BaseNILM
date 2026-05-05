@@ -107,6 +107,14 @@ class RadialNetwork:
         self.e_v = {} # {(i,j,t): e_v_ij} # Voltage Drop Error (Empirical)
         self.e_V = {} # {(i,t): e_V_i} # Nodal Voltage Error (Empirical)
 
+        # Empirical Results Error Normalized
+        self.e_p_norm = {}
+        self.e_V_norm = {}
+
+        # Empirical Accuracy
+        self.p_acc = {}
+        self.v_acc = {}
+
     def export_to_dss_timeseries(self, tilde=False):
         with open(self.dss_filepath, 'w') as f:
 
@@ -598,3 +606,38 @@ class RadialNetwork:
         acc_v_bound = 1 - (acc_v_bound_num / (2 * acc_v_bound_den))
 
         return acc_p_bound, acc_v_bound
+
+    def compute_empirical_accuracy(self):
+
+        p_num = 0
+        p_den = 0
+
+        for t in range(self.T):
+            for (i,j) in self.lines:
+
+                # Absolute errors
+                self.e_p[(i, j, t)] = np.abs(self.p_tilde[(i, j, t)] - self.p[(i, j, t)])
+                denom_p = 2 * np.abs(self.p[(i, j, t)])
+                self.e_p_norm[(i, j, t)] = self.e_p[(i, j, t)] / denom_p if denom_p != 0 else 0
+
+                p_num += np.sqrt(self.e_p[(i, j, t)])
+                p_den += self.p[(i, j, t)]
+
+        p_den = 2 * p_den
+        self.acc_p = 1 - p_num / p_den
+
+        v_num = 0
+        v_den = 0
+
+        for t in range(self.T):
+            for i in self.nodes:
+
+                self.e_V[(i, t)] = np.abs(self.V_tilde[(i, t)] - self.V[(i, t)])
+                denom_V = 2 * np.abs(self.V[(i, t)])
+                self.e_v_norm[(i, t)] = self.e_V[(i, t)] / denom_V if denom_V != 0 else 0
+
+                v_num += np.sqrt(self.e_V[(i, t)])
+                v_den += self.V[(i, t)]
+
+        v_den = 2 * v_den
+        self.acc_v = 1 - v_num / v_den

@@ -278,6 +278,61 @@ class RadialNetwork:
             self.p_tilde = p_dst
             self.q_tilde = q_dst
 
+    def solve_dss(self, tilde=False):
+
+        V_dst = {}
+        p_dst = {}
+        q_dst = {}
+
+        self.export_to_dss(tilde=tilde)
+
+        # Compile
+        dss.Text.Command("Clear")
+        dss.Text.Command(f"compile [{self.dss_filepath}]")
+
+        # Root Node Monitor
+        (i,j) = self.lines[0]
+        dss.Text.Command(
+            f"New Monitor.V_root element=Line.L_{i}_{j} mode=0 terminal=1" # Current Voltage Mode # Terminal 0 - From Bus
+        )
+
+        # Add Monitors
+        for (i,j) in self.lines:
+            dss.Text.Command(
+                f"New Monitor.P_{i}_{j} element=Line.L_{i}_{j} mode=1 terminal=2"  # Power Mode # Terminal 1 - To Bus
+            )
+            dss.Text.Command(
+                f"New Monitor.V_{i}_{j} element=Line.L_{i}_{j} mode=0 terminal=2"  # Voltage Current Mode # Terminal 1 - To Bus
+            )
+
+        dss.Text.Command("Solve")
+
+        # Root Node Monitor Data
+        dss.Monitors.Name("V_root")
+        v_data = dss.Monitors.Channel(1)
+        for t, v in enumerate(v_data):
+            V_dst[(0,t)] = v
+
+        # Monitor Data
+        for (i,j) in self.lines:
+
+            dss.Monitors.Name(f"P_{i}_{j}")
+            p_data = dss.Monitors.Channel(1)
+            for t, p in enumerate(p_data):
+                p_dst[(i, j, t)] = p
+
+            dss.Monitors.Name(f"V_{i}_{j}")
+            V_data = dss.Monitors.Channel(1)
+            for t, v in enumerate(V_data):
+                V_dst[(j, t)] = v # Using To Node
+
+        if tilde:
+            self.V_tilde = V_dst
+            self.p_tilde = p_dst
+        else:
+            self.V = V_dst
+            self.p = p_dst
+
     def power_flow_results(self, t=0, return_results=False, show=False, csv_folderpath=None, tilde=False):
 
         if tilde:

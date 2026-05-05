@@ -248,6 +248,7 @@ class RadialNetwork:
         v_drop = {} # |V_j|^2 - |V_i|^2
         v_dst = {}
         p_dst = {}
+        q_dst = {}
 
         for t in range(self.T):
 
@@ -256,5 +257,78 @@ class RadialNetwork:
                 p_ij = sum(self.P[h][t] for h in self.D(j))
                 p_dst[(i, j, t)] = p_ij
 
+                q_ij = sum(self.Q[h][t] for h in self.D(i))
+                q_dst[(i,j,t)] = q_ij
+
                 r_ij = self.r[(i, j)]
                 x_ij = self.x[(i, j)]
+
+                v_drop[(i, j, t)] = - 2 * (r_ij * p_ij + x_ij * q_ij) # |V_j|^2 - |V_i|^2
+
+            for i in self.nodes:
+
+                v_dst[(i,t)] = self.V0**2 - sum(v_drop[(h, k, t)] for h,k in self.L(i))
+
+        if tilde:
+            self.V_tilde = {k: np.sqrt(v) for k, v in v_dst.items()}
+            self.p_tilde = p_dst
+            self.q_tilde = q_dst
+        else:
+            self.V = {k: np.sqrt(v) for k, v in v_dst.items()}
+            self.p_tilde = p_dst
+            self.q_tilde = q_dst
+
+    def power_flow_results(self, t=0, return_results=False, show=False, csv_folderpath=None, tilde=False):
+
+        if tilde:
+            V_src = self.V_tilde
+            P_src = self.P_tilde
+            Q_src = self.Q_tilde
+            p_src = self.p_tilde
+            q_src = self.q_tilde
+        else:
+            V_src = self.V_tilde
+            P_src = self.P_tilde
+            Q_src = self.Q_tilde
+            p_src = self.p_tilde
+            q_src = self.q_tilde
+
+        # Node Table
+        node_data = []
+        for i in self.nodes:
+            node_data.append({
+                "node": i,
+                "V": V_src[(i, t)],
+                "P": P_src[i][t],
+                "Q": Q_src[i][t],
+            })
+        df_nodes = pd.DataFrame(node_data).sort_values(by="node")
+
+        # Line Table
+        line_data = []
+        for (i, j) in self.lines:
+            line_data.append({
+                "from": i,
+                "to": j,
+                "r": self.r[(i, j)],
+                "x": self.x[(i, j)],
+                "p_flow": p_src[(i, j, t)],
+                "q_flow": q_src[(i, j, t)]
+            })
+        df_lines = pd.DataFrame(line_data).sort_values(by=["from", "to"])
+
+        # Display
+        if show:
+            print(f"\n=== NODE STATES (t={t}) ===")
+            print(df_nodes.to_string(index=False))
+            print(f"\n=== LINE STATES (t={t}) ===")
+            print(df_lines.to_string(index=False))
+
+        # Save to CSV
+        if csv_folderpath:
+            nodes_csv_filepath = csv_folderpath + f"{self.name}_nodes.csv"
+            lines_csv_filepath = csv_folderpath + f"{self.name}_lines.csv"
+            df_nodes.to_csv(nodes_csv_filepath, index=False)
+            df_lines.to_csv(lines_csv_filepath, index=False)
+
+        if return_results: return df_nodes, df_lines

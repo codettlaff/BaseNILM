@@ -125,4 +125,6 @@ network.export_to_dss(tilde=False)
 network.dss_filepath = ieee123_bus_modified_private_filepath
 network.export_to_dss(tilde=True)
 
+network.lin_dist_flow(tilde=False)
+
 print('')

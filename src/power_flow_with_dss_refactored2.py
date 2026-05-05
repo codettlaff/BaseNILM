@@ -248,6 +248,7 @@ class RadialNetwork:
         v_drop = {} # |V_j|^2 - |V_i|^2
         v_dst = {}
         p_dst = {}
+        q_dst = {}
 
         for t in range(self.T):
 
@@ -256,5 +257,23 @@ class RadialNetwork:
                 p_ij = sum(self.P[h][t] for h in self.D(j))
                 p_dst[(i, j, t)] = p_ij
 
+                q_ij = sum(self.Q[h][t] for h in self.D(i))
+                q_dst[(i,j,t)] = q_ij
+
                 r_ij = self.r[(i, j)]
                 x_ij = self.x[(i, j)]
+
+                v_drop[(i, j, t)] = - 2 * (r_ij * p_ij + x_ij * q_ij) # |V_j|^2 - |V_i|^2
+
+            for i in self.nodes:
+
+                v_dst[(i,t)] = self.V0**2 - sum(v_drop[(h, k, t)] for h,k in self.L(i))
+
+        if tilde:
+            self.V_tilde = {k: np.sqrt(v) for k, v in v_dst.items()}
+            self.p_tilde = p_dst
+            self.q_tilde = q_dst
+        else:
+            self.V = {k: np.sqrt(v) for k, v in v_dst.items()}
+            self.p_tilde = p_dst
+            self.q_tilde = q_dst

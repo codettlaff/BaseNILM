@@ -138,4 +138,33 @@ network.empirical_accuracy()
 
 p_acc_line, v_acc_node, p_acc_lower_bound, v_acc_lower_bound = network.theoretical_accuracy(B, EPSILON)
 
+dist_list = []
+v_acc_list = []
+
+for j, v_acc in v_acc_node.items():
+    dist_list.append(network.distance_to_root(j))
+    v_acc_list.append(v_acc)
+
+x = np.array(dist_list)
+y = np.array(v_acc_list)
+
+# Fit line: y = m x + b
+m, b = np.polyfit(x, y, 1)
+y_fit = m * x + b
+
+# Sort for cleaner line plotting
+idx = np.argsort(x)
+x_sorted = x[idx]
+y_fit_sorted = y_fit[idx]
+
+plt.figure()
+plt.scatter(x, y)
+plt.plot(x_sorted, y_fit_sorted)
+plt.xlabel("Distance from root")
+plt.ylabel("Voltage accuracy (v_acc)")
+plt.title("Voltage Accuracy vs Distance from Root (with Best Fit)")
+plt.grid(True)
+
+plt.show()
+
 print('')

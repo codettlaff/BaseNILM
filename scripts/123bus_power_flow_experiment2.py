@@ -136,6 +136,6 @@ network.solve_dss(tilde=True)
 
 network.empirical_accuracy()
 
-network.theoretical_accuracy(B, EPSILON)
+p_acc_line, v_acc_node, p_acc_lower_bound, v_acc_lower_bound = network.theoretical_accuracy(B, EPSILON)
 
 print('')

@@ -447,7 +447,23 @@ class RadialNetwork:
         p_acc_lower_bound = 1 - (sum(sigma_p.values()) / (2 * sum(self.p.values())))
         v_acc_lower_bound = 1 - (sum(sigma_v.values()) / (2 * sum(v ** 2 for v in self.V.values())))
 
-        return p_acc_lower_bound, v_acc_lower_bound
+        # --- Per-line accuracy ---
+        p_acc_line = {}
+        for (i, j) in self.lines:
+            num = sum(sigma_p.get((i, j, t), 0.0) for t in range(self.T))
+            den = sum(self.p.get((i, j, t), 0.0) for t in range(self.T))
+            val = 1 - (num / (2 * den)) if den != 0 else np.nan
+            p_acc_line[(i, j)] = max(0.0, min(1.0, val)) # Min Accuracy below 0 means nothing
+
+        # --- Per-node accuracy ---
+        v_acc_node = {}
+        for j in self.nodes:
+            num = sum(sigma_v.get((j, t), 0.0) for t in range(self.T))
+            den = sum((self.V.get((j, t), 0.0)) ** 2 for t in range(self.T))
+
+            v_acc_node[j] = 1 - (num / (2 * den)) if den != 0 else np.nan
+
+        return p_acc_line, v_acc_node, p_acc_lower_bound, v_acc_lower_bound
 
 
 

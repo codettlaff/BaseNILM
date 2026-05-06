@@ -427,7 +427,7 @@ class RadialNetwork:
         for t in range(self.T):
             for (i, j) in self.lines:
                 K = len(self.D(j))
-                sigma_p[(i, j, t)] = sigma_p.get((i, j, t), 0) + 2 * np.sqrt(2) * K * B / epsilon
+                sigma_p[(i, j, t)] = sigma_p.get((i, j, t), 0) + 2 * np.sqrt(2 * K)  * B / epsilon
 
         sigma_v = {}
 
@@ -444,7 +444,10 @@ class RadialNetwork:
                 total += alpha.get((j, n), 0.0)**2
             sigma_v[(j, t)] = ((4 * np.sqrt(2) * B) / epsilon) * np.sqrt(total)
 
-        print('')
+        p_acc_lower_bound = 1 - (sum(sigma_p.values()) / (2 * sum(self.p.values())))
+        v_acc_lower_bound = 1 - (sum(sigma_v.values()) / (2 * sum(v ** 2 for v in self.V.values())))
+
+        return p_acc_lower_bound, v_acc_lower_bound
 
 
 

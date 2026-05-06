@@ -420,3 +420,32 @@ class RadialNetwork:
         self.V_acc = 1 - (total_e_V / (2 * total_V))
 
         print('')
+
+    def var(self, j, B, epsilon):
+
+        var_e_p = {}
+        for (i,j) in self.lines:
+            for t in range(self.T):
+                K = len(self.D(j)) + 1
+                var_e_p[(i, j, t)] = 8 * K * B**2 / epsilon**2
+
+        var_e_v = {}
+        for t in range(self.T):
+            for j in self.nodes:
+                val = sum(self.r[(k, l)] * self.p[(k, l, t)] + self.x[(k, l)] * self.q[(k, l, t)]
+                          for (k, l) in self.L(j))
+
+        sum_var_e_p = sum(var_e_p.values())
+        sum_var_e_v = sum(var_e_v.values())
+
+        sum_p = sum(self.p.values())
+        sum_V = sum(np.sum(v**2) for v in self.V_tilde.values())
+
+        p_acc = 1 - (sum_var_e_p / (2 * sum_p))
+        v_acc = 1 - (sum_var_e_v / (2 * sum_V))
+
+
+
+
+
+

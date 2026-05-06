@@ -167,4 +167,34 @@ plt.grid(True)
 
 plt.show()
 
+dist_list = []
+p_acc_list = []
+
+for (i, j), p_acc in p_acc_line.items():
+    if p_acc != 0:  # filter out zeros
+        dist_list.append(network.distance_to_root(j))
+        p_acc_list.append(p_acc)
+
+# Convert to arrays
+x = np.array(dist_list)
+y = np.array(p_acc_list)
+
+# Line of best fit: y = m x + b
+m, b = np.polyfit(x, y, 1)
+y_fit = m * x + b
+
+# Sort for clean line plotting
+idx = np.argsort(x)
+
+plt.figure()
+plt.scatter(x, y)
+plt.plot(x[idx], y_fit[idx])
+
+plt.xlabel("Distance from root")
+plt.ylabel("Power flow accuracy (p_acc)")
+plt.title("Power Flow Accuracy vs Distance from Root (with Best Fit)")
+plt.grid(True)
+
+plt.show()
+
 print('')

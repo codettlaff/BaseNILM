@@ -421,28 +421,31 @@ class RadialNetwork:
 
         print('')
 
-    def var(self, j, B, epsilon):
+    def theoretical_accuracy(self, B, epsilon):
 
-        var_e_p = {}
-        for (i,j) in self.lines:
-            for t in range(self.T):
-                K = len(self.D(j)) + 1
-                var_e_p[(i, j, t)] = 8 * K * B**2 / epsilon**2
-
-        var_e_v = {}
+        sigma_p = {}
         for t in range(self.T):
-            for j in self.nodes:
-                val = sum(self.r[(k, l)] * self.p[(k, l, t)] + self.x[(k, l)] * self.q[(k, l, t)]
-                          for (k, l) in self.L(j))
+            for (i, j) in self.lines:
+                K = len(self.D(j))
+                sigma_p[(i, j, t)] = sigma_p.get((i, j, t), 0) + 2 * np.sqrt(2) * K * B / epsilon
 
-        sum_var_e_p = sum(var_e_p.values())
-        sum_var_e_v = sum(var_e_v.values())
+        sigma_v = {}
 
-        sum_p = sum(self.p.values())
-        sum_V = sum(np.sum(v**2) for v in self.V_tilde.values())
+        alpha = {}
+        for j in self.nodes:
+            for (h, k) in self.L(j):
+                for n in self.D(k):
+                    alpha[(j, n)] = alpha.get((j, n), 0) + self.r[(h, k)]
 
-        p_acc = 1 - (sum_var_e_p / (2 * sum_p))
-        v_acc = 1 - (sum_var_e_v / (2 * sum_V))
+        # Each pair (j, n) gives the total resistance of lines on the path to j that are also upstream of n
+        for j in self.nodes:
+            total = 0.0
+            for n in self.nodes:
+                total += alpha.get((j, n), 0.0)**2
+            sigma_v[(j, t)] = ((4 * np.sqrt(2) * B) / epsilon) * np.sqrt(total)
+
+        print('')
+
 
 
 

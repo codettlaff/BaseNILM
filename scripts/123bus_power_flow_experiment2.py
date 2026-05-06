@@ -136,6 +136,6 @@ network.solve_dss(tilde=True)
 
 network.empirical_accuracy()
 
-network.var(1,B,EPSILON)
+network.theoretical_accuracy(B, EPSILON)
 
 print('')

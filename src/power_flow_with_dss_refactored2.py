@@ -258,6 +258,13 @@ class RadialNetwork:
 
     def lin_dist_flow(self, tilde=False):
 
+        if tilde:
+            P_src = self.P_tilde
+            Q_src = self.Q_tilde
+        else:
+            P_src = self.P
+            Q_src = self.Q
+
         v_drop = {} # |V_j|^2 - |V_i|^2
         v_dst = {}
         p_dst = {}
@@ -267,10 +274,10 @@ class RadialNetwork:
 
             for (i,j) in self.lines:
 
-                p_ij = sum(self.P[h][t] for h in self.D(j))
+                p_ij = sum(P_src[h][t] for h in self.D(j))
                 p_dst[(i, j, t)] = p_ij
 
-                q_ij = sum(self.Q[h][t] for h in self.D(i))
+                q_ij = sum(Q_src[h][t] for h in self.D(i))
                 q_dst[(i,j,t)] = q_ij
 
                 r_ij = self.r[(i, j)]

@@ -426,7 +426,7 @@ class RadialNetwork:
         # --- System-wide accuracy ---
         total_e_p = sum(self.e_p.values())
         total_p = sum(self.p.values())
-        p_acc = 1 - (total_e_p / (2 * total_p))
+        p_acc = 0 if total_p == 0 else 1 - (total_e_p / (2 * total_p))
 
         total_e_V = sum(self.e_V.values())
         total_V = sum(self.V.values())

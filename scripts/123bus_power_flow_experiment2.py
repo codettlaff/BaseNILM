@@ -128,15 +128,15 @@ network.export_to_dss(tilde=True)
 network.lin_dist_flow(tilde=False)
 network.lin_dist_flow(tilde=True)
 
-#network.solve_dss(tilde=False)
-# network.solve_dss(tilde=True)
+# --- Get Results --- #
+p_acc_emp_ldf, V_acc_emp_ldf, p_acc_line_emp_ldf, V_acc_node_emp_ldf = network.empirical_accuracy()
+p_acc_line_th_ldf, v_acc_node_th_ldf, p_acc_lb_ldf, v_acc_lb_ldf = network.theoretical_accuracy(B, EPSILON)
 
-#network.power_flow_results(show=True, tilde=False)
-#network.power_flow_results(show=True, tilde=True)
+network.solve_dss(tilde=False)
+network.solve_dss(tilde=True)
 
-# --- Get results ---
-p_acc_emp, V_acc_emp, p_acc_line_emp, V_acc_node_emp = network.empirical_accuracy()
-p_acc_line_th, v_acc_node_th, p_acc_lb, v_acc_lb = network.theoretical_accuracy(B, EPSILON)
+p_acc_emp_dss, V_acc_emp_dss, p_acc_line_emp_dss, V_acc_node_emp_dss = network.empirical_accuracy()
+p_acc_line_th_dss, v_acc_node_th_dss, p_acc_lb_dss, v_acc_lb_dss = network.theoretical_accuracy(B, EPSILON)
 
 # =========================
 # Voltage accuracy (node)

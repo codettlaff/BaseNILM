@@ -125,76 +125,107 @@ network.export_to_dss(tilde=False)
 network.dss_filepath = ieee123_bus_modified_private_filepath
 network.export_to_dss(tilde=True)
 
-#network.lin_dist_flow(tilde=False)
-#network.lin_dist_flow(tilde=True)
+network.lin_dist_flow(tilde=False)
+network.lin_dist_flow(tilde=True)
 
-network.solve_dss(tilde=False)
-network.solve_dss(tilde=True)
+#network.solve_dss(tilde=False)
+# network.solve_dss(tilde=True)
 
 #network.power_flow_results(show=True, tilde=False)
 #network.power_flow_results(show=True, tilde=True)
 
-network.empirical_accuracy()
+# --- Get results ---
+p_acc_emp, V_acc_emp, p_acc_line_emp, V_acc_node_emp = network.empirical_accuracy()
+p_acc_line_th, v_acc_node_th, p_acc_lb, v_acc_lb = network.theoretical_accuracy(B, EPSILON)
 
-p_acc_line, v_acc_node, p_acc_lower_bound, v_acc_lower_bound = network.theoretical_accuracy(B, EPSILON)
+# =========================
+# Voltage accuracy (node)
+# =========================
+dist_emp = []
+v_emp = []
 
-dist_list = []
-v_acc_list = []
+for j, v in V_acc_node_emp.items():
+    dist_emp.append(network.distance_to_root(j))
+    v_emp.append(v)
 
-for j, v_acc in v_acc_node.items():
-    dist_list.append(network.distance_to_root(j))
-    v_acc_list.append(v_acc)
+dist_th = []
+v_th = []
 
-x = np.array(dist_list)
-y = np.array(v_acc_list)
+for j, v in v_acc_node_th.items():
+    dist_th.append(network.distance_to_root(j))
+    v_th.append(v)
 
-# Fit line: y = m x + b
-m, b = np.polyfit(x, y, 1)
-y_fit = m * x + b
+x_emp = np.array(dist_emp)
+y_emp = np.array(v_emp)
 
-# Sort for cleaner line plotting
-idx = np.argsort(x)
-x_sorted = x[idx]
-y_fit_sorted = y_fit[idx]
+x_th = np.array(dist_th)
+y_th = np.array(v_th)
+
+# Fit lines
+m_emp, b_emp = np.polyfit(x_emp, y_emp, 1)
+m_th, b_th = np.polyfit(x_th, y_th, 1)
+
+idx_emp = np.argsort(x_emp)
+idx_th = np.argsort(x_th)
 
 plt.figure()
-plt.scatter(x, y)
-plt.plot(x_sorted, y_fit_sorted)
+plt.scatter(x_emp, y_emp, label="Empirical")
+plt.scatter(x_th, y_th, label="Theoretical")
+
+plt.plot(x_emp[idx_emp], (m_emp * x_emp + b_emp)[idx_emp])
+plt.plot(x_th[idx_th], (m_th * x_th + b_th)[idx_th])
+
 plt.xlabel("Distance from root")
 plt.ylabel("Voltage accuracy (v_acc)")
-plt.title("Voltage Accuracy vs Distance from Root (with Best Fit)")
+plt.title("Voltage Accuracy vs Distance (Empirical vs Theoretical)")
+plt.legend()
 plt.grid(True)
-
 plt.show()
 
-dist_list = []
-p_acc_list = []
+# =========================
+# Power accuracy (line)
+# =========================
+dist_emp = []
+p_emp = []
 
-for (i, j), p_acc in p_acc_line.items():
-    if p_acc != 0:  # filter out zeros
-        dist_list.append(network.distance_to_root(j))
-        p_acc_list.append(p_acc)
+for (i, j), p in p_acc_line_emp.items():
+    if p != 0:
+        dist_emp.append(network.distance_to_root(j))
+        p_emp.append(p)
 
-# Convert to arrays
-x = np.array(dist_list)
-y = np.array(p_acc_list)
+dist_th = []
+p_th = []
 
-# Line of best fit: y = m x + b
-m, b = np.polyfit(x, y, 1)
-y_fit = m * x + b
+for (i, j), p in p_acc_line_th.items():
+    if p != 0:
+        dist_th.append(network.distance_to_root(j))
+        p_th.append(p)
 
-# Sort for clean line plotting
-idx = np.argsort(x)
+x_emp = np.array(dist_emp)
+y_emp = np.array(p_emp)
+
+x_th = np.array(dist_th)
+y_th = np.array(p_th)
+
+# Fit lines
+m_emp, b_emp = np.polyfit(x_emp, y_emp, 1)
+m_th, b_th = np.polyfit(x_th, y_th, 1)
+
+idx_emp = np.argsort(x_emp)
+idx_th = np.argsort(x_th)
 
 plt.figure()
-plt.scatter(x, y)
-plt.plot(x[idx], y_fit[idx])
+plt.scatter(x_emp, y_emp, label="Empirical")
+plt.scatter(x_th, y_th, label="Theoretical")
+
+plt.plot(x_emp[idx_emp], (m_emp * x_emp + b_emp)[idx_emp])
+plt.plot(x_th[idx_th], (m_th * x_th + b_th)[idx_th])
 
 plt.xlabel("Distance from root")
 plt.ylabel("Power flow accuracy (p_acc)")
-plt.title("Power Flow Accuracy vs Distance from Root (with Best Fit)")
+plt.title("Power Flow Accuracy vs Distance (Empirical vs Theoretical)")
+plt.legend()
 plt.grid(True)
-
 plt.show()
 
 print('')
